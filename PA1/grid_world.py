@@ -16,6 +16,7 @@ matplotlib.use('Agg')
 WORLD_SIZE = 4
 START = [0, 0]
 GOAL = [3, 3]
+TELE = [2, 0]
 DISCOUNT = 0.95
 
 # left, up, right, down
@@ -29,17 +30,17 @@ ACTION_PROB = 0.25
 
 
 def step(state, action):
-    if state == GOAL:
-        return START, 10
-
     next_state = (np.array(state) + action).tolist()
     x, y = next_state
+
     if x < 0 or x >= WORLD_SIZE or y < 0 or y >= WORLD_SIZE:
-        reward = -1.0
-        next_state = state
-    else:
-        reward = 0
-    return next_state, reward
+        if state == GOAL:
+            return GOAL, 0
+        if state == TELE:
+            return GOAL, -2.0
+        return state, -1.0
+
+    return next_state, -1.0
 
 
 def draw_image(image):
@@ -58,6 +59,8 @@ def draw_image(image):
             val = str(val) + "\nGOAL"
         if [i, j] == START:
             val = str(val) + "\nSTART"
+        if [i, j] == TELE:
+            val = str(val) + "\nTELEPORT"
 
         tb.add_cell(i, j, width, height, text=val,
                     loc='center', facecolor='white')
@@ -97,6 +100,8 @@ def draw_policy(optimal_values):
             val = str(val) + "\nGOAL"
         if [i, j] == START:
             val = str(val) + "\nSTART"
+        if [i, j] == TELE:
+            val = str(val) + "\nTELEPORT"
 
         tb.add_cell(i, j, width, height, text=val,
                     loc='center', facecolor='white')
@@ -124,7 +129,7 @@ def figure_3_2():
                     new_value[i, j] += ACTION_PROB * (reward + DISCOUNT * value[next_i, next_j])
         if np.sum(np.abs(value - new_value)) < 1e-4:
             draw_image(np.round(new_value, decimals=2))
-            plt.savefig('images/figure_3_2.png')
+            plt.savefig('PA1/images/figure_3_2.png')
             plt.close()
             break
         value = new_value
@@ -150,7 +155,7 @@ def figure_3_2_linear_system():
 
     x = np.linalg.solve(A, b)
     draw_image(np.round(x.reshape(WORLD_SIZE, WORLD_SIZE), decimals=2))
-    plt.savefig('images/figure_3_2_linear_system.png')
+    plt.savefig('PA1/images/figure_3_2_linear_system.png')
     plt.close()
 
 
@@ -169,10 +174,10 @@ def figure_3_5():
                 new_value[i, j] = np.max(values)
         if np.sum(np.abs(new_value - value)) < 1e-4:
             draw_image(np.round(new_value, decimals=2))
-            plt.savefig('images/figure_3_5.png')
+            plt.savefig('PA1/images/figure_3_5.png')
             plt.close()
             draw_policy(new_value)
-            plt.savefig('images/figure_3_5_policy.png')
+            plt.savefig('PA1/images/figure_3_5_policy.png')
             plt.close()
             break
         value = new_value
