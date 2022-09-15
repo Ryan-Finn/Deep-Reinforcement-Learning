@@ -62,15 +62,12 @@ def draw_image(image):
         if [i, j] == TELE:
             val = str(val) + "\nTELEPORT"
 
-        tb.add_cell(i, j, width, height, text=val,
-                    loc='center', facecolor='white')
+        tb.add_cell(i, j, width, height, text=val, loc='center', facecolor='white')
 
     # Row and column labels...
     for i in range(len(image)):
-        tb.add_cell(i, -1, width, height, text=i + 1, loc='right',
-                    edgecolor='none', facecolor='none')
-        tb.add_cell(-1, i, width, height / 2, text=i + 1, loc='center',
-                    edgecolor='none', facecolor='none')
+        tb.add_cell(i, -1, width, height, text=i + 1, loc='right', edgecolor='none', facecolor='none')
+        tb.add_cell(-1, i, width, height / 2, text=i + 1, loc='center', edgecolor='none', facecolor='none')
 
     ax.add_table(tb)
 
@@ -103,15 +100,12 @@ def draw_policy(optimal_values):
         if [i, j] == TELE:
             val = str(val) + "\nTELEPORT"
 
-        tb.add_cell(i, j, width, height, text=val,
-                    loc='center', facecolor='white')
+        tb.add_cell(i, j, width, height, text=val, loc='center', facecolor='white')
 
     # Row and column labels...
     for i in range(len(optimal_values)):
-        tb.add_cell(i, -1, width, height, text=i + 1, loc='right',
-                    edgecolor='none', facecolor='none')
-        tb.add_cell(-1, i, width, height / 2, text=i + 1, loc='center',
-                    edgecolor='none', facecolor='none')
+        tb.add_cell(i, -1, width, height, text=i + 1, loc='right', edgecolor='none', facecolor='none')
+        tb.add_cell(-1, i, width, height / 2, text=i + 1, loc='center', edgecolor='none', facecolor='none')
 
     ax.add_table(tb)
 
@@ -129,34 +123,10 @@ def figure_3_2():
                     new_value[i, j] += ACTION_PROB * (reward + DISCOUNT * value[next_i, next_j])
         if np.sum(np.abs(value - new_value)) < 1e-4:
             draw_image(np.round(new_value, decimals=2))
-            plt.savefig('PA1/images/figure_3_2.png')
+            plt.savefig('../PA1/images/figure_3_2.png')
             plt.close()
             break
         value = new_value
-
-
-def figure_3_2_linear_system():
-    """
-    Here we solve the linear system of equations to find the exact solution.
-    We do this by filling the coefficients for each of the states with their respective right side constant.
-    """
-    A = -1 * np.eye(WORLD_SIZE * WORLD_SIZE)
-    b = np.zeros(WORLD_SIZE * WORLD_SIZE)
-    for i in range(WORLD_SIZE):
-        for j in range(WORLD_SIZE):
-            s = [i, j]  # current state
-            index_s = np.ravel_multi_index(s, (WORLD_SIZE, WORLD_SIZE))
-            for a in ACTIONS:
-                s_, r = step(s, a)
-                index_s_ = np.ravel_multi_index(s_, (WORLD_SIZE, WORLD_SIZE))
-
-                A[index_s, index_s_] += ACTION_PROB * DISCOUNT
-                b[index_s] -= ACTION_PROB * r
-
-    x = np.linalg.solve(A, b)
-    draw_image(np.round(x.reshape(WORLD_SIZE, WORLD_SIZE), decimals=2))
-    plt.savefig('PA1/images/figure_3_2_linear_system.png')
-    plt.close()
 
 
 def figure_3_5():
@@ -174,16 +144,15 @@ def figure_3_5():
                 new_value[i, j] = np.max(values)
         if np.sum(np.abs(new_value - value)) < 1e-4:
             draw_image(np.round(new_value, decimals=2))
-            plt.savefig('PA1/images/figure_3_5.png')
+            plt.savefig('../PA1/images/v-star.png')
             plt.close()
             draw_policy(new_value)
-            plt.savefig('PA1/images/figure_3_5_policy.png')
+            plt.savefig('../PA1/images/pi-star.png')
             plt.close()
             break
         value = new_value
 
 
 if __name__ == '__main__':
-    figure_3_2_linear_system()
     figure_3_2()
     figure_3_5()
