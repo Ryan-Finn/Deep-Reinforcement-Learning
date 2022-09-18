@@ -10,37 +10,25 @@ START = [0, 0]
 GOAL = [3, 3]
 TELE = [2, 0]
 DISCOUNT = 0.95
+THETA = 1e-4
 
-# left, up, right, down
 ACTIONS_FIGS = ['←', '↑', '→', '↓']
-ACTIONS = [np.array([0, -1]),
-           np.array([-1, 0]),
-           np.array([0, 1]),
-           np.array([1, 0])]
-ACTION_PROB = 0.25
+ACTIONS = [np.array([0, -1]),  # left
+           np.array([-1, 0]),  # up
+           np.array([0, 1]),  # right
+           np.array([1, 0])]  # down
 
 
-def new_policy():
-    pi = np.empty((WORLD_SIZE, WORLD_SIZE), dtype=object)
-
-    for i in range(WORLD_SIZE):
-        for j in range(WORLD_SIZE):
-            pi[i, j] = [0.25, 0.25, 0.25, 0.25]
-
-    return pi
-
-
-def draw_image(image):
+def draw_V(v):
     fig, ax = plt.subplots()
     ax.set_axis_off()
     tb = Table(ax, bbox=[0, 0, 1, 1])
 
-    nrows, ncols = image.shape
+    nrows, ncols = v.shape
     width, height = 1.0 / ncols, 1.0 / nrows
 
     # Add cells
-    for (i, j), val in np.ndenumerate(image):
-
+    for (i, j), val in np.ndenumerate(v):
         # add state labels
         if [i, j] == GOAL:
             val = str(val) + "\nGOAL"
@@ -52,32 +40,27 @@ def draw_image(image):
         tb.add_cell(i, j, width, height, text=val, loc='center', facecolor='white')
 
         # Row and column labels...
-    for i in range(len(image)):
-        tb.add_cell(i, -1, width, height, text=i+1, loc='right', edgecolor='none', facecolor='none')
-        tb.add_cell(-1, i, width, height/2, text=i+1, loc='center', edgecolor='none', facecolor='none')
+    for i in range(len(v)):
+        tb.add_cell(i, -1, width, height, text=i + 1, loc='right', edgecolor='none', facecolor='none')
+        tb.add_cell(-1, i, width, height / 2, text=i + 1, loc='center', edgecolor='none', facecolor='none')
 
     ax.add_table(tb)
 
 
-def draw_policy(optimal_values):
+def draw_Pi(pi):
     fig, ax = plt.subplots()
     ax.set_axis_off()
     tb = Table(ax, bbox=[0, 0, 1, 1])
 
-    nrows, ncols = optimal_values.shape
+    nrows, ncols = pi.shape
     width, height = 1.0 / ncols, 1.0 / nrows
 
     # Add cells
-    for (i, j), val in np.ndenumerate(optimal_values):
-        next_vals = []
-        for action in ACTIONS:
-            next_state, _ = step([i, j], action)
-            next_vals.append(optimal_values[next_state[0], next_state[1]])
-
-        best_actions = np.where(next_vals == np.max(next_vals))[0]
+    for (i, j), actions in np.ndenumerate(pi):
         val = ''
-        for ba in best_actions:
-            val += ACTIONS_FIGS[ba]
+
+        for action in np.where(actions != 0)[0]:
+            val += ACTIONS_FIGS[action]
 
         # add state labels
         if [i, j] == GOAL:
@@ -90,11 +73,20 @@ def draw_policy(optimal_values):
         tb.add_cell(i, j, width, height, text=val, loc='center', facecolor='white')
 
     # Row and column labels...
-    for i in range(len(optimal_values)):
+    for i in range(len(pi)):
         tb.add_cell(i, -1, width, height, text=i + 1, loc='right', edgecolor='none', facecolor='none')
         tb.add_cell(-1, i, width, height / 2, text=i + 1, loc='center', edgecolor='none', facecolor='none')
 
     ax.add_table(tb)
+
+
+def new_policy(init=0.0):
+    pi = np.empty((WORLD_SIZE, WORLD_SIZE), dtype=object)
+
+    for (i, j), _ in np.ndenumerate(pi):
+        pi[i, j] = init * np.ones(WORLD_SIZE)
+
+    return pi
 
 
 def step(state, action):
@@ -112,68 +104,72 @@ def step(state, action):
 
 
 def evaluate(pi):
-    V = np.zeros((WORLD_SIZE, WORLD_SIZE))
+    v = np.zeros((WORLD_SIZE, WORLD_SIZE))
 
     while True:
-        V_prime = np.zeros((WORLD_SIZE, WORLD_SIZE))
+        v_prime = np.zeros((WORLD_SIZE, WORLD_SIZE))
 
-        for i in range(WORLD_SIZE):
-            for j in range(WORLD_SIZE):
-                for k, action in enumerate(ACTIONS):
-                    (i_prime, j_prime), reward = step([i, j], action)
-                    V_prime[i, j] += pi[i, j][k] * (reward + DISCOUNT * V[i_prime, j_prime])
-        V_prime[WORLD_SIZE - 1, WORLD_SIZE - 1] = 0
-
-        if abs(V - V_prime).max() < 1e-4:
-            return V_prime
-
-        V = V_prime
-
-
-def improve(V):
-    pi = new_policy()
-
-    for i in range(WORLD_SIZE):
-        for j in range(WORLD_SIZE):
-            best_a = np.array([-np.inf, -np.inf, -np.inf, -np.inf])
+        for (i, j), _ in np.ndenumerate(pi):
             for k, action in enumerate(ACTIONS):
-                pi[i, j][k] = 0
-                (i_prime, j_prime), _ = step([i, j], action)
-                best_a[k] = V[i_prime, j_prime]
+                (i_prime, j_prime), reward = step([i, j], action)
+                v_prime[i, j] += pi[i, j][k] * (reward + DISCOUNT * v[i_prime, j_prime])
 
-            indices = np.where(best_a == max(best_a))[0]
-            for ind in indices:
-                pi[i, j][ind] = 1 / int(len(indices))
+        if abs(v - v_prime).max() < THETA:
+            return v_prime
 
-    return pi
+        v = v_prime
+
+
+def improve(v):
+    pi = new_policy()
+    pi_d = new_policy()
+
+    for (i, j), _ in np.ndenumerate(pi):
+        best_a = np.array([-np.inf, -np.inf, -np.inf, -np.inf])
+        for k, action in enumerate(ACTIONS):
+            (i_prime, j_prime), _ = step([i, j], action)
+            best_a[k] = v[i_prime, j_prime]
+
+        indices = np.where(best_a == max(best_a))[0]
+        for ind in indices:
+            pi[i, j][ind] = 1 / int(len(indices))
+        pi_d[i, j][indices[0]] = 1
+
+    return pi, pi_d
 
 
 def main():
-    pi = new_policy()
-    V = evaluate(pi)
+    v = evaluate(new_policy(0.25))
 
     while True:
-        pi = improve(V)
-        V_prime = evaluate(pi)
+        pi_star, pi_d = improve(v)
+        v_star = evaluate(pi_star)
 
-        if abs(V - V_prime).max() < 1e-4:
+        if abs(v - v_star).max() < THETA:
             break
 
-        V = V_prime
+        v = v_star
 
-    number = 1
-    for a in pi:
+    print("A Deterministic Policy:")
+    print(" L   U   R   D")
+    for a in pi_d:
         for b in a:
-            print(b)
-            number *= int(len(np.where(np.array(b) != 0)[0]))
+            print(*b)
 
-    print(number)
+    print("\nA Stochastic Policy:")
+    print(" L   U   R   D")
+    number = 1
+    for a in pi_star:
+        for b in a:
+            print(*b)
+            number *= int(len(np.where(b != 0)[0]))
 
+    print("\nNumber of Deterministic Policies:", number)
 
-    draw_image(np.round(V_prime, decimals=2))
+    draw_V(np.round(v_star, decimals=2))
     plt.savefig('../PA1/images/v-star.png')
     plt.close()
-    draw_policy(V_prime)
+    draw_Pi(pi_star)
     plt.savefig('../PA1/images/pi-star.png')
     plt.close()
 
