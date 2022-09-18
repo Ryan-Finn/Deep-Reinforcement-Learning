@@ -1,9 +1,6 @@
-import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.table import Table
-
-matplotlib.use('Agg')
+from draw import draw_V, draw_Pi
 
 WORLD_SIZE = 4
 START = [0, 0]
@@ -12,74 +9,13 @@ TELE = [2, 0]
 DISCOUNT = 0.95
 THETA = 1e-4
 
-ACTIONS_FIGS = ['←', '↑', '→', '↓']
 ACTIONS = [np.array([0, -1]),  # left
            np.array([-1, 0]),  # up
            np.array([0, 1]),  # right
            np.array([1, 0])]  # down
 
 
-def draw_V(v):
-    fig, ax = plt.subplots()
-    ax.set_axis_off()
-    tb = Table(ax, bbox=[0, 0, 1, 1])
-
-    nrows, ncols = v.shape
-    width, height = 1.0 / ncols, 1.0 / nrows
-
-    # Add cells
-    for (i, j), val in np.ndenumerate(v):
-        # add state labels
-        if [i, j] == GOAL:
-            val = str(val) + "\nGOAL"
-        if [i, j] == START:
-            val = str(val) + "\nSTART"
-        if [i, j] == TELE:
-            val = str(val) + "\nTELEPORT"
-
-        tb.add_cell(i, j, width, height, text=val, loc='center', facecolor='white')
-
-        # Row and column labels...
-    for i in range(len(v)):
-        tb.add_cell(i, -1, width, height, text=i + 1, loc='right', edgecolor='none', facecolor='none')
-        tb.add_cell(-1, i, width, height / 2, text=i + 1, loc='center', edgecolor='none', facecolor='none')
-
-    ax.add_table(tb)
-
-
-def draw_Pi(pi):
-    fig, ax = plt.subplots()
-    ax.set_axis_off()
-    tb = Table(ax, bbox=[0, 0, 1, 1])
-
-    nrows, ncols = pi.shape
-    width, height = 1.0 / ncols, 1.0 / nrows
-
-    # Add cells
-    for (i, j), actions in np.ndenumerate(pi):
-        val = ''
-
-        for action in np.where(actions != 0)[0]:
-            val += ACTIONS_FIGS[action]
-
-        # add state labels
-        if [i, j] == GOAL:
-            val = str(val) + "\nGOAL"
-        if [i, j] == START:
-            val = str(val) + "\nSTART"
-        if [i, j] == TELE:
-            val = str(val) + "\nTELEPORT"
-
-        tb.add_cell(i, j, width, height, text=val, loc='center', facecolor='white')
-
-    # Row and column labels...
-    for i in range(len(pi)):
-        tb.add_cell(i, -1, width, height, text=i + 1, loc='right', edgecolor='none', facecolor='none')
-        tb.add_cell(-1, i, width, height / 2, text=i + 1, loc='center', edgecolor='none', facecolor='none')
-
-    ax.add_table(tb)
-
-
+# Make new policy
 def new_policy(init=0.0):
     pi = np.empty((WORLD_SIZE, WORLD_SIZE), dtype=object)
 
@@ -89,6 +25,7 @@ def new_policy(init=0.0):
     return pi
 
 
+# Get next state and reward from current state and action
 def step(state, action):
     next_state = (np.array(state) + action).tolist()
     x, y = next_state
@@ -125,7 +62,7 @@ def improve(v):
     pi_d = new_policy()
 
     for (i, j), _ in np.ndenumerate(pi):
-        best_a = np.array([-np.inf, -np.inf, -np.inf, -np.inf])
+        best_a = -np.inf * np.ones(WORLD_SIZE)
         for k, action in enumerate(ACTIONS):
             (i_prime, j_prime), _ = step([i, j], action)
             best_a[k] = v[i_prime, j_prime]
@@ -166,10 +103,10 @@ def main():
 
     print("\nNumber of Deterministic Policies:", number)
 
-    draw_V(np.round(v_star, decimals=2))
+    draw_V(np.round(v_star, decimals=2), START, GOAL, TELE)
     plt.savefig('../PA1/images/v-star.png')
     plt.close()
-    draw_Pi(pi_star)
+    draw_Pi(pi_star, START, GOAL, TELE)
     plt.savefig('../PA1/images/pi-star.png')
     plt.close()
 
