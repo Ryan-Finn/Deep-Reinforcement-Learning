@@ -52,8 +52,9 @@ def evaluate(pi):
             for k, action in enumerate(ACTIONS):
                 (i_prime, j_prime), reward = step([i, j], action)
                 v_prime[i, j] += pi[i, j][k] * (reward + GAMMA * v[i_prime, j_prime])
-
-        if abs(v - v_prime).max() < THETA:
+            if [i, j] == GRID["goal"]:  # this check is important if GAMMA is ever set to 1
+                v_prime[i, j] = 0
+        if abs(v - v_prime).max() <= THETA:
             return v_prime
 
         v = v_prime
@@ -79,11 +80,12 @@ def improve(v):
 
 def main():
     v = evaluate(new_policy(0.25))  # init policy with equal chance to take any action in any state, and evaluate it
+    #  I think any random policy could work as well though...
 
     while True:
         pi_star, pi_d = improve(v)  # improve policy
         v_star = evaluate(pi_star)  # evaluate improved policy
-        if abs(v - v_star).max() < THETA:
+        if abs(v - v_star).max() <= THETA:
             break
         v = v_star
 
