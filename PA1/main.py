@@ -1,5 +1,5 @@
-import matplotlib.pyplot as plt
 import numpy as np
+
 from draw import draw_V, draw_Pi
 
 GRID = {
@@ -83,7 +83,6 @@ def main():
     while True:
         pi_star, pi_d = improve(v)
         v_star = evaluate(pi_star)
-
         if abs(v - v_star).max() < THETA:
             break
         v = v_star
@@ -102,12 +101,8 @@ def main():
 
     print("\nNumber of Deterministic Policies:", number)
 
-    draw_V(np.round(v_star, decimals=2), GRID)
-    plt.savefig('../PA1/images/v-star.png')
-    plt.close()
-    draw_Pi(pi_star, GRID)
-    plt.savefig('../PA1/images/pi-star.png')
-    plt.close()
+    draw_V(v_star, GRID, '../PA1/images/v-star.png')
+    draw_Pi(pi_star, GRID, '../PA1/images/pi-star.png')
 
 
 if __name__ == '__main__':

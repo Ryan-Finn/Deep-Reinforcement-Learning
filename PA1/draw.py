@@ -15,7 +15,7 @@ matplotlib.use('Agg')
 ACTIONS_FIGS = ['←', '↑', '→', '↓']
 
 
-def draw_V(v, INIT):
+def draw_V(v, INIT, file):
     fig, ax = plt.subplots()
     ax.set_axis_off()
     tb = Table(ax, bbox=[0, 0, 1, 1])
@@ -24,6 +24,7 @@ def draw_V(v, INIT):
     width, height = 1.0 / ncols, 1.0 / nrows
 
     # Add cells
+    v = np.round(v, decimals=2)
     for (i, j), val in np.ndenumerate(v):
         # add state labels
         if [i, j] == INIT["goal"]:
@@ -41,9 +42,11 @@ def draw_V(v, INIT):
         tb.add_cell(-1, i, width, height / 2, text=i + 1, loc='center', edgecolor='none', facecolor='none')
 
     ax.add_table(tb)
+    plt.savefig(file)
+    plt.close()
 
 
-def draw_Pi(pi, INIT):
+def draw_Pi(pi, INIT, file):
     fig, ax = plt.subplots()
     ax.set_axis_off()
     tb = Table(ax, bbox=[0, 0, 1, 1])
@@ -74,3 +77,5 @@ def draw_Pi(pi, INIT):
         tb.add_cell(-1, i, width, height / 2, text=i + 1, loc='center', edgecolor='none', facecolor='none')
 
     ax.add_table(tb)
+    plt.savefig(file)
+    plt.close()
