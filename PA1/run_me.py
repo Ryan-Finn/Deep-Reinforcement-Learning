@@ -1,3 +1,9 @@
+# Ryan Finn
+# Sept. 19, 2022
+# PA 1
+
+# Images made in "/images" folder
+
 import numpy as np
 
 from draw import draw_V, draw_Pi
