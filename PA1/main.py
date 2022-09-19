@@ -33,11 +33,11 @@ def step(state, action):
     i, j = next_state
 
     if i < 0 or i >= GRID["world_size"][0] or j < 0 or j >= GRID["world_size"][1]:
-        if state == GRID["goal"]:
+        if state == GRID["goal"]:  # if at goal and move out of bounds
             return GRID["goal"], 0
-        if state == GRID["tele"]:
+        if state == GRID["tele"]:  # if at teleport and move out of bounds
             return GRID["goal"], -2.0
-        return state, -1.0
+        return state, -1.0  # if at some edge or corner and move out of bounds
 
     return next_state, -1.0
 
@@ -60,8 +60,8 @@ def evaluate(pi):
 
 
 def improve(v):
-    pi = new_policy()
-    pi_d = new_policy()
+    pi = new_policy()  # stochastic policy
+    pi_d = new_policy()  # deterministic policy
 
     for (i, j), _ in np.ndenumerate(pi):
         best_a = -np.inf * np.ones(GRID["world_size"][0])
@@ -78,11 +78,11 @@ def improve(v):
 
 
 def main():
-    v = evaluate(new_policy(0.25))
+    v = evaluate(new_policy(0.25))  # init policy with equal chance to take any action in any state, and evaluate it
 
     while True:
-        pi_star, pi_d = improve(v)
-        v_star = evaluate(pi_star)
+        pi_star, pi_d = improve(v)  # improve policy
+        v_star = evaluate(pi_star)  # evaluate improved policy
         if abs(v - v_star).max() < THETA:
             break
         v = v_star
@@ -97,12 +97,13 @@ def main():
     number = 1
     for _, k in np.ndenumerate(pi_star):
         print(*k)
-        number *= int(len(np.where(k != 0)[0]))
+        number *= int(len(np.where(k != 0)[0]))  # calc total number of deterministic policies
 
     print("\nNumber of Deterministic Policies:", number)
 
     draw_V(v_star, GRID, '../PA1/images/v-star.png')
     draw_Pi(pi_star, GRID, '../PA1/images/pi-star.png')
+    draw_Pi(pi_d, GRID, '../PA1/images/pi-d.png')
 
 
 if __name__ == '__main__':
