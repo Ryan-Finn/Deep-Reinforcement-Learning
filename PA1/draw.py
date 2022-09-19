@@ -15,7 +15,7 @@ matplotlib.use('Agg')
 ACTIONS_FIGS = ['←', '↑', '→', '↓']
 
 
-def draw_V(v, START, GOAL, TELE):
+def draw_V(v, INIT):
     fig, ax = plt.subplots()
     ax.set_axis_off()
     tb = Table(ax, bbox=[0, 0, 1, 1])
@@ -26,11 +26,11 @@ def draw_V(v, START, GOAL, TELE):
     # Add cells
     for (i, j), val in np.ndenumerate(v):
         # add state labels
-        if [i, j] == GOAL:
+        if [i, j] == INIT["goal"]:
             val = str(val) + "\nGOAL"
-        if [i, j] == START:
+        if [i, j] == INIT["start"]:
             val = str(val) + "\nSTART"
-        if [i, j] == TELE:
+        if [i, j] == INIT["tele"]:
             val = str(val) + "\nTELEPORT"
 
         tb.add_cell(i, j, width, height, text=val, loc='center', facecolor='white')
@@ -43,7 +43,7 @@ def draw_V(v, START, GOAL, TELE):
     ax.add_table(tb)
 
 
-def draw_Pi(pi, START, GOAL, TELE):
+def draw_Pi(pi, INIT):
     fig, ax = plt.subplots()
     ax.set_axis_off()
     tb = Table(ax, bbox=[0, 0, 1, 1])
@@ -59,11 +59,11 @@ def draw_Pi(pi, START, GOAL, TELE):
             val += ACTIONS_FIGS[action]
 
         # add state labels
-        if [i, j] == GOAL:
+        if [i, j] == INIT["goal"]:
             val = str(val) + "\nGOAL"
-        if [i, j] == START:
+        if [i, j] == INIT["start"]:
             val = str(val) + "\nSTART"
-        if [i, j] == TELE:
+        if [i, j] == INIT["tele"]:
             val = str(val) + "\nTELEPORT"
 
         tb.add_cell(i, j, width, height, text=val, loc='center', facecolor='white')
