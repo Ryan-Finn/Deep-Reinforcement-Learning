@@ -1,4 +1,5 @@
 import struct
+
 import zmq
 
 
@@ -50,9 +51,5 @@ def main():
         # new_state = [x, xdot, theta, thetadot]
         if response_command == ANIMATE:
             animation_enabled, = struct.unpack('i', response_bytes[4:])
-        else:
-            print("Error: invalid command: ", response_command)
-
-
-if __name__ == "__main__":
-    main()
+        # else:
+        #     print("Error: invalid command: ", response_command)

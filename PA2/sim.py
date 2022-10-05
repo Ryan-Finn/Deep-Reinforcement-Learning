@@ -3,12 +3,12 @@ Created on Tue Dec 14 15:04:22 2021
 
 @author: jonathan
 """
-from scipy.integrate import solve_ivp
 import matplotlib as mpl
 import matplotlib.animation as anim
 import matplotlib.patches as patches
 import matplotlib.pyplot as plt
 import numpy as np
+from scipy.integrate import solve_ivp
 
 plt.rcParams['text.usetex'] = False
 
@@ -119,7 +119,3 @@ def main():
 
     plt.show()
     return a
-
-
-if __name__ == "__main__":
-    animation = main()

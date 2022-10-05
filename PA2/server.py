@@ -1,19 +1,21 @@
-from scipy.integrate import solve_ivp
 import argparse
-import sim as ip
+import struct
+
 import matplotlib.animation as anim
 import matplotlib.pyplot as plt
 import numpy as np
-import struct
 import zmq
+from scipy.integrate import solve_ivp
+
+import sim as ip
 
 
 def main(argus):
     m1 = 1
     m2 = 1
     L = 1
-    I2 = 1/12*m2*L**2
-    l = L/2
+    I2 = 1 / 12 * m2 * L ** 2
+    l = L / 2
     w1 = 0.4
     h1 = 0.2
     w2 = 0.1
@@ -29,7 +31,7 @@ def main(argus):
     prod = producer(singlePendulumCart, sock, timestep, argus)
 
     vis = Visualizer(singlePendulumCart)
-    a = anim.FuncAnimation(vis.fig, vis.animate, prod, vis.init_patches, interval=timestep*1000, blit=True)
+    a = anim.FuncAnimation(vis.fig, vis.animate, prod, vis.init_patches, interval=timestep * 1000, blit=True)
 
     plt.show()
     return a, cont, sock
@@ -43,7 +45,7 @@ def advance_one_step(pend_cart, u, state, timestep):
 
 
 def get_reward(new_state):
-    if new_state[2] > np.pi/2 or new_state[2] < -np.pi/2:
+    if new_state[2] > np.pi / 2 or new_state[2] < -np.pi / 2:
         return -1
     else:
         return 0
@@ -94,7 +96,6 @@ def producer(pend_cart, sock, timestep, argus):
 
 class Visualizer:
     def __init__(self, pend_cart):
-
         self.pend_cart = pend_cart
 
         self.fig = plt.figure()
@@ -116,8 +117,7 @@ class Visualizer:
         return patches
 
 
-if __name__ == "__main__":
+def execute():
     parser = argparse.ArgumentParser(description="Simulate an inverted pendulum")
     parser.add_argument('--animate', action='store_true')
-    args = parser.parse_args()
-    animation, context, socket = main(args)
+    main(parser.parse_args())
