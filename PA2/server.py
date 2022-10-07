@@ -33,30 +33,37 @@ class Visualizer:
 
 
 def producer(spc, sock, timestep):
+    APPLY_FORCE = 0
     w = spc.W / 2
     state = [0, 0, np.pi, 0]
     yield state
 
     while True:
         response_bytes = sock.recv()
-        u, = struct.unpack('f', response_bytes[0:])
-        new_state = solve_ivp(spc.deriv, [0, timestep], state, args=[[u], 0]).y[:, -1]
 
-        # Elastic collision
-        if new_state[0] >= 5 - w or new_state[0] <= -5 + w:
-            new_state[0] = state[0]
-            new_state[1] = -state[1]
-            new_state[2] = state[2]
-            new_state[3] = state[3] - 2 * state[1] * np.cos(state[2])
+        if struct.unpack('i', response_bytes[0:4])[0] == APPLY_FORCE:
+            u, = struct.unpack('f', response_bytes[4:])
+            new_state = solve_ivp(spc.deriv, [0, timestep], state, args=[[u], 0]).y[:, -1]
 
-        state = new_state
-        sock.send(struct.pack('ffff', *state))
-        yield state
+            # Elastic collision
+            if new_state[0] >= 5 - w or new_state[0] <= -5 + w:
+                new_state[0] = state[0]
+                new_state[1] = -state[1]
+                new_state[2] = state[2]
+                new_state[3] = state[3] - state[1] * np.cos(state[2]) / spc.L
+
+            state = new_state
+            sock.send(struct.pack('ffff', *state))
+            yield state
+        else:
+            x, v, theta, omega = struct.unpack('ffff', response_bytes[4:])
+            state = [x, v, theta, omega]
+
 
 
 def main():
     # Pole mass, width, and height
-    m = 1
+    m = 0.5
     w = 0.1
     h = 1
     # Cart mass, width, and height

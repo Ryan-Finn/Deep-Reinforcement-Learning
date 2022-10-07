@@ -1,5 +1,6 @@
 import struct
 from threading import Thread
+from numpy import pi
 
 import zmq
 
@@ -7,18 +8,22 @@ from server import main as run
 
 
 def main():
+    APPLY_FORCE = 0
+    SET_STATE = 1
+
+    START = pi
+    GOAL = 0
+
     context = zmq.Context()
     socket = context.socket(zmq.REQ)
     socket.connect("tcp://localhost:5556")
 
-    socket.send(struct.pack('f', 500))
+    socket.send(struct.pack('if', APPLY_FORCE, 500))
     socket.recv()
 
     while True:
-        socket.send(struct.pack('f', 0))
-        response_bytes = socket.recv()
-
-        x, _, _, _ = struct.unpack('ffff', response_bytes)
+        socket.send(struct.pack('if', APPLY_FORCE, 0))
+        x, v, theta, omega = struct.unpack('ffff', socket.recv())
 
 
 if __name__ == "__main__":
