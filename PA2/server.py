@@ -45,12 +45,17 @@ def producer(spc, sock, timestep):
             u, = struct.unpack('f', response_bytes[4:])
             new_state = solve_ivp(spc.deriv, [0, timestep], state, args=[[u], 0]).y[:, -1]
 
-            # Elastic collision
-            if new_state[0] >= 5 - w or new_state[0] <= -5 + w:
-                new_state[0] = state[0]
-                new_state[1] = -state[1]
-                new_state[2] = state[2]
-                new_state[3] = state[3] - state[1] * np.cos(state[2]) / spc.L
+            a = 0  # a = 0: Inelastic collision, a = 1: Elastic collision
+            outbounds = 0
+            if new_state[0] >= 5 - w:
+                outbounds = 1
+            elif new_state[0] <= -5 + w:
+                outbounds = -1
+
+            if outbounds != 0:
+                new_state[0] = outbounds * 2 * (5 - w) - new_state[0]
+                new_state[1] = -a * state[1]
+                new_state[3] -= state[1] * np.cos(new_state[2]) / spc.L
 
             state = new_state
             sock.send(struct.pack('ffff', *state))
@@ -58,7 +63,6 @@ def producer(spc, sock, timestep):
         else:
             x, v, theta, omega = struct.unpack('ffff', response_bytes[4:])
             state = [x, v, theta, omega]
-
 
 
 def main():
