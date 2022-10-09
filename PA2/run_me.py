@@ -1,50 +1,68 @@
 import struct
 from threading import Thread
 
+import numpy as np
 import zmq
 
 from server import main as run
-import numpy as np
+
+n = 8  # Number of bins (even). Try to keep low, Q = O(n^5)
+bins = [
+    np.linspace(0, np.pi, n),  # theta bins
+    np.linspace(0, 4, n),  # omega bins
+    np.linspace(0, 5, n),  # x bins
+    np.linspace(0, 7, n)  # velocity bins
+]
+u = np.linspace(-10, 10, n)  # force bins
 
 
 def main():
-    t = np.linspace(0, 9, 9)
-    w = np.linspace(-7, 7, 9)
-    x = np.linspace(-5, 5, 11)
-    v = np.linspace(-7, 7, 9)
-    actions = np.linspace(-5, 5, 9)
-
-    keys = []
-    for a in x:
-        str1 = "" + str(a)
-        for b in v:
-            keys.append(str1 + str(b))
-
-    Q = [[{key: [0 for _ in range(9)] for key in keys} for _ in range(9)] for _ in range(9)]  # Q(t, w, x, v, a)
-
     APPLY_FORCE = 0
     SET_STATE = 1
+    RUNNING = 3
 
     context = zmq.Context()
     socket = context.socket(zmq.REQ)
     socket.connect("tcp://localhost:5556")
 
-    for episode in range(1000):
-        state = [np.pi, 0, 0, 0]
-        socket.send(struct.pack('iffff', SET_STATE, *state))
-        socket.recv()
+    socket.send(struct.pack('i', RUNNING))
+    _ = socket.recv()
 
-        while state[0] != 0 or state[1] != 0:
-            socket.send(struct.pack('if', APPLY_FORCE, 5))
-            # socket.recv()
-            # socket.send(struct.pack('if', APPLY_FORCE, 0))
-            t, w, x, v = struct.unpack('ffff', socket.recv())
-            state = [t, w, x, v]
+    with open('Q.npy', 'rb') as f:
+        Q = np.load(f)
+
+    state = [np.pi, 0, 0, 0]
+    socket.send(struct.pack('iffff', SET_STATE, *state))
+    _ = socket.recv()
+
+    t, w, x, v = discretize(state)
+
+    while True:
+        A = Q[t][w][x][v]
+        socket.send(struct.pack('if', APPLY_FORCE, u[A]))
+        t, w, x, v = struct.unpack('ffff', socket.recv())
+        t, w, x, v = discretize([t, w, x, v])
+
+
+def discretize(state):
+    for i, attr in enumerate(bins):
+        for j in range(n):
+            if abs(state[i]) < attr[j]:
+                state[i] = j - 1
+                break
+            elif abs(state[i]) == attr[j]:
+                state[i] = j
+                break
+        if abs(state[i]) > attr[n - 1]:
+            state[i] = n - 1
+        elif abs(state[i]) < attr[0]:
+            state[i] = 0
+    return state[0], state[1], state[2], state[3]
 
 
 if __name__ == "__main__":
-    th1 = Thread(target=main)
-    th1.start()
-
+    th1 = Thread(target=main, daemon=True)
     th2 = Thread(target=run)
+
+    th1.start()
     th2.start()

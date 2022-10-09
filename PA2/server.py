@@ -33,22 +33,22 @@ class Visualizer:
 
 
 def producer(spc, sock, timestep):
-    a = 0.5  # a = 0: Inelastic collision, a = 1: Elastic collision
+    a = 0.0  # a = 0: Inelastic collision, a = 1: Elastic collision
 
     APPLY_FORCE = 0
     width = spc.W / 2
 
     t, w, x, v = struct.unpack('ffff', sock.recv()[4:])
+    sock.send(struct.pack('i', 0))
     state = [t, w, x, v]
     yield state
 
-    sock.send(struct.pack('i', 0))
     while True:
         response_bytes = sock.recv()
 
         if struct.unpack('i', response_bytes[0:4])[0] == APPLY_FORCE:
             u, = struct.unpack('f', response_bytes[4:])
-            new_state = solve_ivp(spc.deriv, [0, timestep], state, args=[[u], 0]).y[:, -1]
+            new_state = solve_ivp(spc.xddNtdd, [0, timestep], state, args=(u,)).y[:, -1]
 
             outbounds = 0
             if new_state[2] >= 5 - width:
@@ -62,16 +62,18 @@ def producer(spc, sock, timestep):
                 new_state[3] = -a * state[3]
 
             state = new_state
+            state[0] = (state[0] + np.pi) % (2 * np.pi) - np.pi
             sock.send(struct.pack('ffff', *state))
             yield state
         else:
             t, w, x, v = struct.unpack('ffff', response_bytes[4:])
             state = [t, w, x, v]
+            sock.send(struct.pack('i', 0))
 
 
 def main():
     # Pole mass, width, and height
-    m = 1
+    m = 0.5
     w = 0.2
     h = 2
     # Cart mass, width, and height
@@ -87,6 +89,13 @@ def main():
     sock = cont.socket(zmq.REP)
     sock.bind("tcp://*:5556")
 
-    vis = Visualizer(spc)
-    _ = anim.FuncAnimation(vis.fig, vis.animate, producer(spc, sock, 0.02), vis.init_patches, interval=1, blit=True)
-    plt.show()
+    animate = struct.unpack('i', sock.recv())[0] == 3
+    sock.send(struct.pack('i', 0))
+
+    if animate:
+        vis = Visualizer(spc)
+        _ = anim.FuncAnimation(vis.fig, vis.animate, producer(spc, sock, 0.02), vis.init_patches, interval=1, blit=True)
+        plt.show()
+    else:
+        for _ in producer(spc, sock, 0.02):
+            pass

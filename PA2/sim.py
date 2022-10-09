@@ -18,21 +18,16 @@ class SinglePendulumCart:
         self.Pole = patches.Rectangle((-w / 2, 0), w, h, color='k')
         self.Cart = patches.Rectangle((-W / 2, -H / 2), W, H)
 
-    def deriv(self, _, X, u, __):
+    def xddNtdd(self, _, state, u):
         m = self.m
         L = self.L
         M = self.M
         g = self.g
 
-        theta = X[0]
-        omega = X[1]
-        v = X[3]
+        theta = state[0]
+        omega = state[1]
+        v = state[3]
         I = m * L * L / 3
-
-        try:
-            u = u[0]
-        except IndexError:
-            u = u
 
         A = np.array([
             [-(m + M), m * L * np.cos(theta)],
