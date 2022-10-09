@@ -33,11 +33,16 @@ class Visualizer:
 
 
 def producer(spc, sock, timestep):
+    a = 0.5  # a = 0: Inelastic collision, a = 1: Elastic collision
+
     APPLY_FORCE = 0
-    w = spc.W / 2
-    state = [0, 0, np.pi, 0]
+    width = spc.W / 2
+
+    t, w, x, v = struct.unpack('ffff', sock.recv()[4:])
+    state = [t, w, x, v]
     yield state
 
+    sock.send(struct.pack('i', 0))
     while True:
         response_bytes = sock.recv()
 
@@ -45,35 +50,34 @@ def producer(spc, sock, timestep):
             u, = struct.unpack('f', response_bytes[4:])
             new_state = solve_ivp(spc.deriv, [0, timestep], state, args=[[u], 0]).y[:, -1]
 
-            a = 0  # a = 0: Inelastic collision, a = 1: Elastic collision
             outbounds = 0
-            if new_state[0] >= 5 - w:
+            if new_state[2] >= 5 - width:
                 outbounds = 1
-            elif new_state[0] <= -5 + w:
+            elif new_state[2] <= -5 + width:
                 outbounds = -1
 
             if outbounds != 0:
-                new_state[0] = outbounds * 2 * (5 - w) - new_state[0]
-                new_state[1] = -a * state[1]
-                new_state[3] -= state[1] * np.cos(new_state[2]) / spc.L
+                new_state[1] -= state[3] * np.cos(new_state[0]) / spc.L
+                new_state[2] = (1 + a) * outbounds * (5 - width) - a * new_state[2]
+                new_state[3] = -a * state[3]
 
             state = new_state
             sock.send(struct.pack('ffff', *state))
             yield state
         else:
-            x, v, theta, omega = struct.unpack('ffff', response_bytes[4:])
-            state = [x, v, theta, omega]
+            t, w, x, v = struct.unpack('ffff', response_bytes[4:])
+            state = [t, w, x, v]
 
 
 def main():
     # Pole mass, width, and height
-    m = 0.5
-    w = 0.1
-    h = 1
+    m = 1
+    w = 0.2
+    h = 2
     # Cart mass, width, and height
     M = 1
-    W = 0.5
-    H = 0.2
+    W = 1
+    H = 0.4
     # Gravity
     g = 9.81
 
@@ -84,5 +88,5 @@ def main():
     sock.bind("tcp://*:5556")
 
     vis = Visualizer(spc)
-    _ = anim.FuncAnimation(vis.fig, vis.animate, producer(spc, sock, 0.01), vis.init_patches, interval=1, blit=True)
+    _ = anim.FuncAnimation(vis.fig, vis.animate, producer(spc, sock, 0.02), vis.init_patches, interval=1, blit=True)
     plt.show()

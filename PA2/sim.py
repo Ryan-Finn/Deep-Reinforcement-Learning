@@ -15,7 +15,7 @@ class SinglePendulumCart:
         self.M = M
         self.W = W
         self.g = g
-        self.Pole = patches.Rectangle((-w / 2, 0), w, h)
+        self.Pole = patches.Rectangle((-w / 2, 0), w, h, color='k')
         self.Cart = patches.Rectangle((-W / 2, -H / 2), W, H)
 
     def deriv(self, _, X, u, __):
@@ -24,9 +24,9 @@ class SinglePendulumCart:
         M = self.M
         g = self.g
 
-        v = X[1]
-        theta = X[2]
-        omega = X[3]
+        theta = X[0]
+        omega = X[1]
+        v = X[3]
         I = m * L * L / 3
 
         try:
@@ -48,11 +48,11 @@ class SinglePendulumCart:
         a = a[0]
         omega_dot = omega_dot[0]
 
-        return np.array([v, a, omega, omega_dot])
+        return np.array([omega, omega_dot, v, a])
 
     def draw(self, ax, y):
-        x = y[0]
-        theta = y[2]
+        x = y[2]
+        theta = y[0]
 
         t1 = mpl.transforms.Affine2D().rotate(theta) + mpl.transforms.Affine2D().translate(x, 0) + ax.transData
         t2 = mpl.transforms.Affine2D().translate(x, 0) + ax.transData

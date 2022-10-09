@@ -1,6 +1,5 @@
 import struct
 from threading import Thread
-from numpy import pi
 
 import zmq
 
@@ -9,28 +8,38 @@ import numpy as np
 
 
 def main():
-    n = 9  # number of bins, should only be a power of 2 plus 1 (e.g. 3, 5, 9, 17, etc.)
-    Q = [{} for _ in range(n)]
-    Q = np.array([[[[[0 for _ in range(n)] for _ in range(n)] for _ in range(n)] for _ in range(n)] for _ in range(n)])
-    actions = np.linspace(-5, 5, n)
-    print(actions)
+    t = np.linspace(0, 9, 9)
+    w = np.linspace(-7, 7, 9)
+    x = np.linspace(-5, 5, 11)
+    v = np.linspace(-7, 7, 9)
+    actions = np.linspace(-5, 5, 9)
+
+    keys = []
+    for a in x:
+        str1 = "" + str(a)
+        for b in v:
+            keys.append(str1 + str(b))
+
+    Q = [[{key: [0 for _ in range(9)] for key in keys} for _ in range(9)] for _ in range(9)]  # Q(t, w, x, v, a)
 
     APPLY_FORCE = 0
     SET_STATE = 1
-
-    START = pi
-    GOAL = 0
 
     context = zmq.Context()
     socket = context.socket(zmq.REQ)
     socket.connect("tcp://localhost:5556")
 
-    socket.send(struct.pack('if', APPLY_FORCE, 500))
-    socket.recv()
+    for episode in range(1000):
+        state = [np.pi, 0, 0, 0]
+        socket.send(struct.pack('iffff', SET_STATE, *state))
+        socket.recv()
 
-    while True:
-        socket.send(struct.pack('if', APPLY_FORCE, 0))
-        x, v, theta, omega = struct.unpack('ffff', socket.recv())
+        while state[0] != 0 or state[1] != 0:
+            socket.send(struct.pack('if', APPLY_FORCE, 5))
+            # socket.recv()
+            # socket.send(struct.pack('if', APPLY_FORCE, 0))
+            t, w, x, v = struct.unpack('ffff', socket.recv())
+            state = [t, w, x, v]
 
 
 if __name__ == "__main__":
