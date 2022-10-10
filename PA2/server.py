@@ -33,7 +33,7 @@ class Visualizer:
 
 
 def producer(spc, sock, timestep):
-    a = 0.0  # a = 0: Inelastic collision, a = 1: Elastic collision
+    a = 0.5  # a = 0: Inelastic collision, a = 1: Elastic collision
 
     APPLY_FORCE = 0
     width = spc.W / 2

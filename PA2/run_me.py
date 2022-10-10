@@ -6,12 +6,12 @@ import zmq
 
 from server import main as run
 
-n = 8  # Number of bins (even). Try to keep low, Q = O(n^5)
+n = 7  # Number of bins (odd). Try to keep low, Q = O(n^5)
 bins = [
-    np.linspace(0, np.pi, n),  # theta bins
-    np.linspace(0, 4, n),  # omega bins
-    np.linspace(0, 5, n),  # x bins
-    np.linspace(0, 7, n)  # velocity bins
+    np.linspace(-np.pi, np.pi, n),  # theta bins
+    np.linspace(-4, 4, n),  # omega bins
+    np.linspace(-5, 5, n),  # x bins
+    np.linspace(-7, 7, n)  # velocity bins
 ]
 u = np.linspace(-10, 10, n)  # force bins
 
@@ -46,17 +46,22 @@ def main():
 
 def discretize(state):
     for i, attr in enumerate(bins):
-        for j in range(n):
-            if abs(state[i]) < attr[j]:
+        delta = (attr[n // 2] - attr[n // 2 - 1]) / 2
+        if state[i] < attr[0] + delta:
+            state[i] = 0
+            continue
+
+        for j in range(1, n):
+            if state[i] < attr[j] - delta:
                 state[i] = j - 1
                 break
-            elif abs(state[i]) == attr[j]:
+            elif state[i] == attr[j] - delta:
                 state[i] = j
                 break
-        if abs(state[i]) > attr[n - 1]:
-            state[i] = n - 1
-        elif abs(state[i]) < attr[0]:
-            state[i] = 0
+        else:
+            if state[i] > attr[n - 1] - delta:
+                state[i] = n - 1
+
     return state[0], state[1], state[2], state[3]
 
 
