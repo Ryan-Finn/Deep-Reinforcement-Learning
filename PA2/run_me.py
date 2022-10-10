@@ -6,21 +6,21 @@ import zmq
 
 from server import main as run
 
-n = 7  # Number of bins (odd). Try to keep low, Q = O(n^5)
+n = 9  # Number of bins (odd). Try to keep low: Q = O(n^2)
 bins = [
-    np.linspace(-np.pi, np.pi, n),  # theta bins
-    np.linspace(-4, 4, n),  # omega bins
-    np.linspace(-5, 5, n),  # x bins
-    np.linspace(-7, 7, n)  # velocity bins
+    np.array([-np.pi / 18, 0, np.pi / 18]),  # theta bins
+    np.linspace(-2, 2, n),  # omega bins
+    np.linspace(-4.5, 4.5, 3),  # x bins
+    np.linspace(-2, 2, n)  # velocity bins
 ]
-u = np.linspace(-10, 10, n)  # force bins
+u = [-10, 10]  # force bins
+
+APPLY_FORCE = 0
+SET_STATE = 1
+RUNNING = 2
 
 
 def main():
-    APPLY_FORCE = 0
-    SET_STATE = 1
-    RUNNING = 3
-
     context = zmq.Context()
     socket = context.socket(zmq.REQ)
     socket.connect("tcp://localhost:5556")
@@ -28,10 +28,10 @@ def main():
     socket.send(struct.pack('i', RUNNING))
     _ = socket.recv()
 
-    with open('Q.npy', 'rb') as f:
+    with open('Q_ql.npy', 'rb') as f:
         Q = np.load(f)
 
-    state = [np.pi, 0, 0, 0]
+    state = [0, 0, 0, 0]
     socket.send(struct.pack('iffff', SET_STATE, *state))
     _ = socket.recv()
 
@@ -45,7 +45,23 @@ def main():
 
 
 def discretize(state):
-    for i, attr in enumerate(bins):
+    if state[0] <= bins[0][0]:
+        state[0] = 0
+    elif state[0] >= bins[0][2]:
+        state[0] = 2
+    else:
+        state[0] = 1
+
+    delta = bins[2][2] / 2
+    if state[2] <= bins[2][0] + delta:
+        state[2] = 0
+    elif state[2] >= bins[2][2] - delta:
+        state[2] = 2
+    else:
+        state[2] = 1
+
+    for i in [1, 3]:
+        attr = bins[i]
         delta = (attr[n // 2] - attr[n // 2 - 1]) / 2
         if state[i] < attr[0] + delta:
             state[i] = 0
@@ -66,8 +82,11 @@ def discretize(state):
 
 
 if __name__ == "__main__":
-    th1 = Thread(target=main, daemon=True)
-    th2 = Thread(target=run)
+    print((-np.pi) % (2 * np.pi))
+    print((np.pi) % (2 * np.pi))
 
-    th1.start()
-    th2.start()
+    # th1 = Thread(target=main, daemon=True)
+    # th2 = Thread(target=run)
+    #
+    # th1.start()
+    # th2.start()

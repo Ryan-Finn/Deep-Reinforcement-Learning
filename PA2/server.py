@@ -15,8 +15,7 @@ class Visualizer:
         self.fig = plt.figure()
         self.ax = self.fig.add_subplot(111)
         self.ax.set_xlim(-5, 5)
-        self.ax.set_ylim(-5, 5)
-
+        self.ax.set_ylim(-3, 7)
         plt.axis('equal')
 
     def init_patches(self):
@@ -72,10 +71,12 @@ def producer(spc, sock, timestep):
 
 
 def main():
+    RUNNING = 2
+
     # Pole mass, width, and height
     m = 0.5
     w = 0.2
-    h = 2
+    h = 4
     # Cart mass, width, and height
     M = 1
     W = 1
@@ -89,7 +90,7 @@ def main():
     sock = cont.socket(zmq.REP)
     sock.bind("tcp://*:5556")
 
-    animate = struct.unpack('i', sock.recv())[0] == 3
+    animate = struct.unpack('i', sock.recv())[0] == RUNNING
     sock.send(struct.pack('i', 0))
 
     if animate:
