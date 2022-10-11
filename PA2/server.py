@@ -74,7 +74,7 @@ def main():
     RUNNING = 2
 
     # Pole mass, width, and height
-    m = 0.5
+    m = 0.25
     w = 0.2
     h = 4
     # Cart mass, width, and height
