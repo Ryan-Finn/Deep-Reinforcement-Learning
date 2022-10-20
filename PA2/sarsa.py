@@ -11,6 +11,17 @@ def init(a, b, c, d, e, f, g):
     n, u, epsilon, alpha, gamma, SET_STATE, APPLY_FORCE = a, b, c, d, e, f, g
     bins.init(n)
 
+    Q = [[[[[-1 for _ in range(2)] for _ in range(n - 1)] for _ in range(n)] for _ in range(n)] for _ in range(n)]
+
+    for x in range(n):
+        for v in range(n - 1):
+            Q[0][n // 2][x][v][0] = 0
+            Q[0][n // 2][x][v][1] = 0
+            Q[n - 1][n // 2][x][v][0] = 0
+            Q[n - 1][n // 2][x][v][1] = 0
+
+    return Q, [[[[0 for _ in range(n - 1)] for _ in range(n)] for _ in range(n)] for _ in range(n)]
+
 
 def sarsa(Q, episodes, socket, steps=150):
     episodes2 = []

@@ -28,29 +28,17 @@ def main():
     socket.send(struct.pack('i', TRAINING))
     _ = socket.recv()
 
-    q = [[[[[-1 for _ in range(2)] for _ in range(n - 1)] for _ in range(n)] for _ in range(n)] for _ in range(n)]
-    Q = [[[[[-1 for _ in range(2)] for _ in range(n - 1)] for _ in range(n)] for _ in range(n)] for _ in range(n)]
-    Q_new = [[[[0 for _ in range(n - 1)] for _ in range(n)] for _ in range(n)] for _ in range(n)]
+    remove('policy.npy')
 
-    remove('Q.npy')
-
-    q = do_sarsa(q, 100, socket)
-    Q = do_ql(Q, 100, socket)
-    with open('Q.npy', 'wb') as f:
-        for (t, w, x, v), _ in np.ndenumerate(np.array(Q_new)):
-            Q_new[t][w][x][v] = int((Q[t][w][x][v][0] + q[t][w][x][v][0]) < (Q[t][w][x][v][1] + q[t][w][x][v][1]))
-        np.save(f, np.array(Q_new))
+    Q, Pi = do_sarsa(100, socket)
+    with open('policy.npy', 'wb') as f:
+        for (t, w, x, v), _ in np.ndenumerate(np.array(Pi)):
+            Pi[t][w][x][v] = int(Q[t][w][x][v][0] < Q[t][w][x][v][1])
+        np.save(f, np.array(Pi))
 
 
-def do_sarsa(Q, steps, socket):
-    sarsa.init(n, u, epsilon, alpha, gamma, SET_STATE, APPLY_FORCE)
-
-    for x in range(n):
-        for v in range(n - 1):
-            Q[0][n // 2][x][v][0] = 0
-            Q[0][n // 2][x][v][1] = 0
-            Q[n - 1][n // 2][x][v][0] = 0
-            Q[n - 1][n // 2][x][v][1] = 0
+def do_sarsa(steps, socket):
+    Q, Pi = sarsa.init(n, u, epsilon, alpha, gamma, SET_STATE, APPLY_FORCE)
 
     i = 0
     count = 0
@@ -71,7 +59,7 @@ def do_sarsa(Q, steps, socket):
             last = len(episodes)
         i += 1
 
-    return Q
+    return Q, Pi
 
 
 def do_ql(Q, steps, socket):

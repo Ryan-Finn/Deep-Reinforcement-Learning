@@ -19,7 +19,7 @@ def main():
     socket.send(struct.pack('i', RUNNING))
     _ = socket.recv()
 
-    with open('Q.npy', 'rb') as f:
+    with open('policy.npy', 'rb') as f:
         Q = np.load(f)
 
     state = [0, 0, 0, 0]
