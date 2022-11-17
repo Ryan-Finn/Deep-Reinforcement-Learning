@@ -124,7 +124,7 @@ def step(position, velocity, action):
 # @activeTiles: current active tile indices
 # @lam: lambda
 # @return: new trace for convenience
-def accumulating_trace(trace, active_tiles, lam):
+def accumulating_trace(trace, active_tiles, lam, _=None):
     trace *= lam * DISCOUNT
     trace[active_tiles] += 1
     return trace
@@ -223,13 +223,13 @@ class Sarsa:
         if self.trace_update == accumulating_trace or self.trace_update == replacing_trace:
             self.trace_update(self.trace, active_tiles, self.lam)
         elif self.trace_update == dutch_trace:
-            self.trace_update(self.trace, active_tiles, self.lam)
+            self.trace_update(self.trace, active_tiles, self.lam, self.step_size)
         elif self.trace_update == replacing_trace_with_clearing:
             clearing_tiles = []
             for act in ACTIONS:
                 if act != action:
                     clearing_tiles.extend(self.get_active_tiles(position, velocity, act))
-            self.trace_update(self.trace, active_tiles, self.lam)
+            self.trace_update(self.trace, active_tiles, self.lam, clearing_tiles)
         else:
             raise Exception('Unexpected Trace Type')
         self.weights += self.step_size * delta * self.trace
@@ -278,10 +278,10 @@ def play(evaluator):
 
 # figure 12.10, effect of the lambda and alpha on early performance of Sarsa(lambda)
 def figure_12_10():
-    runs = 30
-    episodes = 50
+    runs = 20
+    episodes = 1
     alphas = np.arange(1, 8) / 4.0
-    lams = [0.99, 0.95, 0.5, 0]
+    lams = [0.99, 0.9, 0.5, 0]
 
     steps = np.zeros((len(lams), len(alphas), runs, episodes))
     for lamInd, lam in enumerate(lams):
@@ -313,8 +313,8 @@ def figure_12_10():
 def figure_12_11():
     traceTypes = [dutch_trace, replacing_trace, replacing_trace_with_clearing, accumulating_trace]
     alphas = np.arange(0.2, 2.2, 0.2)
-    episodes = 20
-    runs = 30
+    episodes = 1
+    runs = 20
     lam = 0.9
     rewards = np.zeros((len(traceTypes), len(alphas), runs, episodes))
 
