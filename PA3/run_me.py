@@ -10,6 +10,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 from math import floor
 from tqdm import tqdm
+import sim
 
 matplotlib.use('Agg')
 
@@ -67,7 +68,7 @@ def tiles(iht_or_size, num_tilings, floats, ints=None, read_only=False):
     if ints is None:
         ints = []
     qfloats = [floor(f * num_tilings) for f in floats]
-    tiles = []
+    ts = []
     for tiling in range(num_tilings):
         tilingX2 = tiling * 2
         coords = [tiling]
@@ -76,8 +77,8 @@ def tiles(iht_or_size, num_tilings, floats, ints=None, read_only=False):
             coords.append((q + b) // num_tilings)
             b += tilingX2
         coords.extend(ints)
-        tiles.append(hash_coords(coords, iht_or_size, read_only))
-    return tiles
+        ts.append(hash_coords(coords, iht_or_size, read_only))
+    return ts
 
 
 # Tile coding ends
@@ -108,15 +109,15 @@ STEP_LIMIT = 5000
 
 # take an @action at @position and @velocity
 # @return: new position, new velocity, reward (always -1)
-def step(position, velocity, action):
-    new_velocity = velocity + 0.001 * action - 0.0025 * np.cos(3 * position)
-    new_velocity = min(max(VELOCITY_MIN, new_velocity), VELOCITY_MAX)
-    new_position = position + new_velocity
-    new_position = min(max(POSITION_MIN, new_position), POSITION_MAX)
-    reward = -1.0
-    if new_position == POSITION_MIN:
-        new_velocity = 0.0
-    return new_position, new_velocity, reward
+# def step(position, velocity, action):
+#     new_velocity = velocity + 0.001 * action - 0.0025 * np.cos(3 * position)
+#     new_velocity = min(max(VELOCITY_MIN, new_velocity), VELOCITY_MAX)
+#     new_position = position + new_velocity
+#     new_position = min(max(POSITION_MIN, new_position), POSITION_MAX)
+#     reward = -1.0
+#     if new_position == POSITION_MIN:
+#         new_velocity = 0.0
+#     return new_position, new_velocity, reward
 
 
 # accumulating trace update rule
@@ -199,25 +200,22 @@ class Sarsa:
         self.velocity_scale = self.num_of_tilings / (VELOCITY_MAX - VELOCITY_MIN)
 
     # get indices of active tiles for given state and action
-    def get_active_tiles(self, position, velocity, action):
+    def get_active_tiles(self, mountain_car, action):
         # I think positionScale * (position - position_min) would be a good normalization.
-        # However positionScale * position_min is a constant, so it's ok to ignore it.
-        active_tiles = tiles(self.hash_table, self.num_of_tilings,
-                             [self.position_scale * position, self.velocity_scale * velocity],
-                             [action])
-        return active_tiles
+        # However, positionScale * position_min is a constant, so it's ok to ignore it.
+        state = mountain_car.getState()
+        return tiles(self.hash_table, self.num_of_tilings,
+                             [self.position_scale * state[0], self.velocity_scale * state[1]], [action])
 
     # estimate the value of given state and action
-    def value(self, position, velocity, action):
-        if position == POSITION_MAX:
+    def value(self, mountain_car, action):
+        if mountain_car.isTerminal():
             return 0.0
-        active_tiles = self.get_active_tiles(position, velocity, action)
-        return np.sum(self.weights[active_tiles])
+        return np.sum(self.weights[self.get_active_tiles(mountain_car, action)])
 
     # learn with given state, action and target
-
-    def learn(self, position, velocity, action, target):
-        active_tiles = self.get_active_tiles(position, velocity, action)
+    def learn(self, state, action, target):
+        active_tiles = self.get_active_tiles(state, action)
         estimation = np.sum(self.weights[active_tiles])
         delta = target - estimation
         if self.trace_update == accumulating_trace or self.trace_update == replacing_trace:
@@ -228,56 +226,52 @@ class Sarsa:
             clearing_tiles = []
             for act in ACTIONS:
                 if act != action:
-                    clearing_tiles.extend(self.get_active_tiles(position, velocity, act))
+                    clearing_tiles.extend(self.get_active_tiles(state, act))
             self.trace_update(self.trace, active_tiles, self.lam, clearing_tiles)
         else:
             raise Exception('Unexpected Trace Type')
         self.weights += self.step_size * delta * self.trace
 
-    # get # of steps to reach the goal under current state value function
-    def cost_to_go(self, position, velocity):
-        costs = []
-        for action in ACTIONS:
-            costs.append(self.value(position, velocity, action))
-        return -np.max(costs)
-
 
 # get action at @position and @velocity based on epsilon greedy policy and @valueFunction
-def get_action(position, velocity, valueFunction):
+def get_action(mountain_car, valueFunction):
     if np.random.binomial(1, EPSILON) == 1:
         return np.random.choice(ACTIONS)
     values = []
     for action in ACTIONS:
-        values.append(valueFunction.value(position, velocity, action))
+        values.append(valueFunction.value(mountain_car, action))
     return np.argmax(values) - 1
 
 
 # play Mountain Car for one episode based on given method @evaluator
 # @return: total steps in this episode
-def play(evaluator):
-    position = np.random.uniform(-0.6, -0.4)
-    velocity = 0.0
-    action = get_action(position, velocity, evaluator)
-    steps = 0
-    while True:
-        next_position, next_velocity, reward = step(position, velocity, action)
-        next_action = get_action(next_position, next_velocity, evaluator)
-        steps += 1
-        target = reward + DISCOUNT * evaluator.value(next_position, next_velocity, next_action)
-        evaluator.learn(position, velocity, action, target)
-        position = next_position
-        velocity = next_velocity
+def play(mountain_car, evaluator):
+    mountain_car.reset()
+    state = mountain_car.getState()
+    action = get_action(mountain_car, evaluator)
+    steps = 1
+
+    while steps < STEP_LIMIT:
+        if mountain_car.isTerminal():
+            return steps
+
+        next_state = mountain_car.update(action)
+        next_action = get_action(mountain_car, evaluator)
+
+        target = -1 + DISCOUNT * evaluator.value(mountain_car, next_action)
+        evaluator.learn(state, action, target)
+
+        state = next_state
         action = next_action
-        if next_position == POSITION_MAX:
-            break
-        if steps >= STEP_LIMIT:
-            print('Step Limit Exceeded!')
-            break
+        steps += 1
+
+    print('Step Limit Exceeded!')
     return steps
 
 
 # figure 12.10, effect of the lambda and alpha on early performance of Sarsa(lambda)
 def figure_12_10():
+    mountain_car = sim.MountainCar()
     runs = 20
     episodes = 1
     alphas = np.arange(1, 8) / 4.0
@@ -289,7 +283,7 @@ def figure_12_10():
             for run in tqdm(range(runs)):
                 evaluator = Sarsa(alpha, lam, replacing_trace)
                 for ep in range(episodes):
-                    steps[lamInd, alphaInd, run, ep] = play(evaluator)
+                    steps[lamInd, alphaInd, run, ep] = play(mountain_car, evaluator)
 
     # average over episodes
     steps = np.mean(steps, axis=3)
@@ -311,6 +305,7 @@ def figure_12_10():
 # figure 12.11, summary comparision of Sarsa(lambda) algorithms
 # I use 8 tilings rather than 10 tilings
 def figure_12_11():
+    mountain_car = sim.MountainCar()
     traceTypes = [dutch_trace, replacing_trace, replacing_trace_with_clearing, accumulating_trace]
     alphas = np.arange(0.2, 2.2, 0.2)
     episodes = 1
@@ -326,7 +321,7 @@ def figure_12_11():
                     if trace == accumulating_trace and alpha > 0.6:
                         steps = STEP_LIMIT
                     else:
-                        steps = play(evaluator)
+                        steps = play(mountain_car, evaluator)
                     rewards[traceInd, alphaInd, run, ep] = -steps
 
     # average over episodes
