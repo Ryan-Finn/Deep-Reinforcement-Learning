@@ -104,20 +104,7 @@ DISCOUNT = 1.0
 EPSILON = 0
 
 # maximum steps per episode
-STEP_LIMIT = 5000
-
-
-# take an @action at @position and @velocity
-# @return: new position, new velocity, reward (always -1)
-# def step(position, velocity, action):
-#     new_velocity = velocity + 0.001 * action - 0.0025 * np.cos(3 * position)
-#     new_velocity = min(max(VELOCITY_MIN, new_velocity), VELOCITY_MAX)
-#     new_position = position + new_velocity
-#     new_position = min(max(POSITION_MIN, new_position), POSITION_MAX)
-#     reward = -1.0
-#     if new_position == POSITION_MIN:
-#         new_velocity = 0.0
-#     return new_position, new_velocity, reward
+STEP_LIMIT = 1000
 
 
 # accumulating trace update rule
@@ -200,10 +187,9 @@ class Sarsa:
         self.velocity_scale = self.num_of_tilings / (VELOCITY_MAX - VELOCITY_MIN)
 
     # get indices of active tiles for given state and action
-    def get_active_tiles(self, mountain_car, action):
+    def get_active_tiles(self, state, action):
         # I think positionScale * (position - position_min) would be a good normalization.
         # However, positionScale * position_min is a constant, so it's ok to ignore it.
-        state = mountain_car.getState()
         return tiles(self.hash_table, self.num_of_tilings,
                              [self.position_scale * state[0], self.velocity_scale * state[1]], [action])
 
@@ -211,7 +197,7 @@ class Sarsa:
     def value(self, mountain_car, action):
         if mountain_car.isTerminal():
             return 0.0
-        return np.sum(self.weights[self.get_active_tiles(mountain_car, action)])
+        return np.sum(self.weights[self.get_active_tiles(mountain_car.getState(), action)])
 
     # learn with given state, action and target
     def learn(self, state, action, target):
@@ -265,25 +251,28 @@ def play(mountain_car, evaluator):
         action = next_action
         steps += 1
 
-    print('Step Limit Exceeded!')
+    # print('Step Limit Exceeded!')
     return steps
 
 
 # figure 12.10, effect of the lambda and alpha on early performance of Sarsa(lambda)
 def figure_12_10():
     mountain_car = sim.MountainCar()
-    runs = 20
-    episodes = 1
+    runs = 50
+    episodes = 20
     alphas = np.arange(1, 8) / 4.0
     lams = [0.99, 0.9, 0.5, 0]
 
     steps = np.zeros((len(lams), len(alphas), runs, episodes))
+    progress = tqdm(total=runs*episodes*len(lams)*len(alphas), ncols=100)
     for lamInd, lam in enumerate(lams):
         for alphaInd, alpha in enumerate(alphas):
-            for run in tqdm(range(runs)):
+            for run in range(runs):
                 evaluator = Sarsa(alpha, lam, replacing_trace)
                 for ep in range(episodes):
                     steps[lamInd, alphaInd, run, ep] = play(mountain_car, evaluator)
+                    progress.update()
+    progress.close()
 
     # average over episodes
     steps = np.mean(steps, axis=3)
@@ -302,20 +291,21 @@ def figure_12_10():
     plt.close()
 
 
-# figure 12.11, summary comparision of Sarsa(lambda) algorithms
+# figure 12.11, summary comparison of Sarsa(lambda) algorithms
 # I use 8 tilings rather than 10 tilings
 def figure_12_11():
     mountain_car = sim.MountainCar()
     traceTypes = [dutch_trace, replacing_trace, replacing_trace_with_clearing, accumulating_trace]
-    alphas = np.arange(0.2, 2.2, 0.2)
-    episodes = 1
-    runs = 20
+    alphas = np.arange(1, 8) / 4.0
+    episodes = 20
+    runs = 50
     lam = 0.9
     rewards = np.zeros((len(traceTypes), len(alphas), runs, episodes))
 
+    progress = tqdm(total=runs * episodes * len(traceTypes) * len(alphas), ncols=100)
     for traceInd, trace in enumerate(traceTypes):
         for alphaInd, alpha in enumerate(alphas):
-            for run in tqdm(range(runs)):
+            for run in range(runs):
                 evaluator = Sarsa(alpha, lam, trace)
                 for ep in range(episodes):
                     if trace == accumulating_trace and alpha > 0.6:
@@ -323,6 +313,8 @@ def figure_12_11():
                     else:
                         steps = play(mountain_car, evaluator)
                     rewards[traceInd, alphaInd, run, ep] = -steps
+                    progress.update()
+    progress.close()
 
     # average over episodes
     rewards = np.mean(rewards, axis=3)
@@ -342,5 +334,5 @@ def figure_12_11():
 
 
 if __name__ == '__main__':
-    figure_12_10()
+    # figure_12_10()
     figure_12_11()
