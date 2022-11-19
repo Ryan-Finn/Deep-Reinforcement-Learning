@@ -2,7 +2,7 @@ import struct
 
 import zmq
 
-import sim
+import MountainCar
 
 
 def producer(mountain_car, sock):
