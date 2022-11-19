@@ -83,29 +83,26 @@ def figure_12_10():
     runs = 5
     episodes = 50
     alphas = np.arange(1, 8) / 4.0
-    lams = [0.99, 0.9, 0.5, 0]
+    lam = 0.9
 
-    steps = np.zeros((len(lams), len(alphas), runs, episodes))
-    with tqdm(total=runs * episodes * len(lams) * len(alphas), ncols=100) as progress:
-        for lamInd, lam in enumerate(lams):
-            for alphaInd, alpha in enumerate(alphas):
-                for run in range(runs):
-                    evaluator = sarsa_lam.setEvaluator(alpha, lam)
-                    for ep in range(episodes):
-                        steps[lamInd, alphaInd, run, ep] = play(mountain_car, evaluator)
-                        progress.update()
+    steps = np.zeros((len(alphas), runs, episodes))
+    with tqdm(total=runs * episodes * len(alphas), ncols=100) as progress:
+        for alphaInd, alpha in enumerate(alphas):
+            for run in range(runs):
+                evaluator = sarsa_lam.setEvaluator(alpha, lam)
+                for ep in range(episodes):
+                    steps[alphaInd, run, ep] = play(mountain_car, evaluator)
+                    progress.update()
 
     # average over episodes
-    steps = np.mean(steps, axis=3)
-
-    # average over runs
     steps = np.mean(steps, axis=2)
 
-    for lamInd, lam in enumerate(lams):
-        plt.plot(alphas, steps[lamInd, :], label='lambda = %s' % (str(lam)))
+    # average over runs
+    steps = np.mean(steps, axis=1)
+
+    plt.plot(alphas, steps[:], label='lambda = %s' % (str(lam)))
     plt.xlabel('alpha * # of tilings (8)')
     plt.ylabel('averaged steps per episode')
-    plt.ylim([180, 300])
     plt.legend()
 
     plt.savefig('images/figure_12_10.png')
@@ -148,8 +145,7 @@ def figure_12_11():
     for traceInd, trace in enumerate(traceTypes):
         plt.plot(alphas, rewards[traceInd, :], label=trace.__name__)
     plt.xlabel('alpha * # of tilings (8)')
-    plt.ylabel('averaged rewards pre episode')
-    plt.ylim([-550, -150])
+    plt.ylabel('averaged rewards per episode')
     plt.legend()
 
     plt.savefig('images/figure_12_11.png')
@@ -158,4 +154,4 @@ def figure_12_11():
 
 if __name__ == '__main__':
     figure_12_10()
-    # figure_12_11()
+    figure_12_11()
