@@ -161,19 +161,14 @@ FOURIER_BASES = 1
 
 class BasesValueFunction:
     # @order: # of bases, each function also has one more constant parameter (called bias in machine learning)
-    # @type: polynomial bases or Fourier bases
-    def __init__(self, order, type):
+    def __init__(self, order):
         self.order = order
         self.weights = np.zeros(order + 1)
 
-        # set up bases function
+        # set up Fourier bases function
         self.bases = []
-        if type == POLYNOMIAL_BASES:
-            for i in range(0, order + 1):
-                self.bases.append(lambda s, i=i: pow(s, i))
-        elif type == FOURIER_BASES:
-            for i in range(0, order + 1):
-                self.bases.append(lambda s, i=i: np.cos(i * np.pi * s))
+        for i in range(0, order + 1):
+            self.bases.append(lambda s, i=i: np.cos(i * np.pi * s))
 
     # get the value of @state
     def value(self, state):
@@ -270,140 +265,38 @@ def semi_gradient_temporal_difference(value_function, n, alpha):
         state = next_state
 
 
-# Figure 9.1, gradient Monte Carlo algorithm
-def figure_9_1(true_value):
-    episodes = int(1e5)
-    alpha = 2e-5
-
-    # we have 10 aggregations in this example, each has 100 states
-    value_function = ValueFunction(10)
-    distribution = np.zeros(N_STATES + 2)
-    for ep in tqdm(range(episodes)):
-        gradient_monte_carlo(value_function, alpha, distribution)
-
-    distribution /= np.sum(distribution)
-    state_values = [value_function.value(i) for i in STATES]
-
-    plt.figure(figsize=(10, 20))
-
-    plt.subplot(2, 1, 1)
-    plt.plot(STATES, state_values, label='Approximate MC value')
-    plt.plot(STATES, true_value[1: -1], label='True value')
-    plt.xlabel('State')
-    plt.ylabel('Value')
-    plt.legend()
-
-    plt.subplot(2, 1, 2)
-    plt.plot(STATES, distribution[1: -1], label='State distribution')
-    plt.xlabel('State')
-    plt.ylabel('Distribution')
-    plt.legend()
-
-    plt.savefig('images/figure_9_1.png')
-    plt.close()
-
-
-# semi-gradient TD on 1000-state random walk
-def figure_9_2_left(true_value):
-    episodes = int(1e5)
-    alpha = 2e-4
-    value_function = ValueFunction(10)
-    for ep in tqdm(range(episodes)):
-        semi_gradient_temporal_difference(value_function, 1, alpha)
-
-    stateValues = [value_function.value(i) for i in STATES]
-    plt.plot(STATES, stateValues, label='Approximate TD value')
-    plt.plot(STATES, true_value[1: -1], label='True value')
-    plt.xlabel('State')
-    plt.ylabel('Value')
-    plt.legend()
-
-
-# different alphas and steps for semi-gradient TD
-def figure_9_2_right(true_value):
-    # all possible steps
-    steps = np.power(2, np.arange(0, 10))
-
-    # all possible alphas
-    alphas = np.arange(0, 1.1, 0.1)
-
-    # each run has 10 episodes
-    episodes = 10
-
-    # perform 100 independent runs
-    runs = 100
-
-    # track the errors for each (step, alpha) combination
-    errors = np.zeros((len(steps), len(alphas)))
-    for run in tqdm(range(runs)):
-        for step_ind, step in zip(range(len(steps)), steps):
-            for alpha_ind, alpha in zip(range(len(alphas)), alphas):
-                # we have 20 aggregations in this example
-                value_function = ValueFunction(20)
-                for ep in range(0, episodes):
-                    semi_gradient_temporal_difference(value_function, step, alpha)
-                    # calculate the RMS error
-                    state_value = np.asarray([value_function.value(i) for i in STATES])
-                    errors[step_ind, alpha_ind] += np.sqrt(
-                        np.sum(np.power(state_value - true_value[1: -1], 2)) / N_STATES)
-    # take average
-    errors /= episodes * runs
-    # truncate the error
-    for i in range(len(steps)):
-        plt.plot(alphas, errors[i, :], label='n = ' + str(steps[i]))
-    plt.xlabel('alpha')
-    plt.ylabel('RMS error')
-    plt.ylim([0.25, 0.55])
-    plt.legend()
-
-
-def figure_9_2(true_value):
-    plt.figure(figsize=(10, 20))
-    plt.subplot(2, 1, 1)
-    figure_9_2_left(true_value)
-    plt.subplot(2, 1, 2)
-    figure_9_2_right(true_value)
-
-    plt.savefig('images/figure_9_2.png')
-    plt.close()
-
-
 # Figure 9.5, Fourier basis and polynomials
 def figure_9_5(true_value):
-    # my machine can only afford 1 run
-    runs = 1
+    runs = 5
 
-    episodes = 5000
+    episodes = 1000
 
     # # of bases
-    orders = [5, 10, 20]
-
-    alphas = [1e-4, 5e-5]
-    labels = [['polynomial basis'] * 3, ['fourier basis'] * 3]
+    orders = [3, 5, 7]
+    alpha = 0.4
 
     # track errors for each episode
-    errors = np.zeros((len(alphas), len(orders), episodes))
-    for run in range(runs):
-        for i in range(len(orders)):
-            value_functions = [BasesValueFunction(orders[i], POLYNOMIAL_BASES),
-                               BasesValueFunction(orders[i], FOURIER_BASES)]
-            for j in range(len(value_functions)):
-                for episode in tqdm(range(episodes)):
+    errors = np.zeros((len(orders), episodes))
+    with tqdm(total=runs * episodes * len(orders), ncols=100) as progress:
+        for run in range(runs):
+            for i in range(len(orders)):
+                value_function = BasesValueFunction(orders[i])
+                for episode in range(episodes):
                     # gradient Monte Carlo algorithm
-                    gradient_monte_carlo(value_functions[j], alphas[j])
+                    gradient_monte_carlo(value_function, alpha)
 
                     # get state values under current value function
-                    state_values = [value_functions[j].value(state) for state in STATES]
+                    state_values = [value_function.value(state) for state in STATES]
 
                     # get the root-mean-squared error
-                    errors[j, i, episode] += np.sqrt(np.mean(np.power(true_value[1: -1] - state_values, 2)))
+                    errors[i, episode] += np.sqrt(np.mean(np.power(true_value[1: -1] - state_values, 2)))
+                    progress.update()
 
     # average over independent runs
     errors /= runs
 
-    for i in range(len(alphas)):
-        for j in range(len(orders)):
-            plt.plot(errors[i, j, :], label='%s order = %d' % (labels[i][j], orders[j]))
+    for j in range(len(orders)):
+        plt.plot(errors[j, :], label='fourier basis order = %d' % orders[j])
     plt.xlabel('Episodes')
     # The book plots RMSVE, which is RMSE weighted by a state distribution
     plt.ylabel('RMSE')
@@ -413,66 +306,10 @@ def figure_9_5(true_value):
     plt.close()
 
 
-# Figure 9.10, it will take quite a while
-def figure_9_10(true_value):
-    # My machine can only afford one run, thus the curve isn't so smooth
-    runs = 1
-
-    # number of episodes
-    episodes = 5000
-
-    num_of_tilings = 50
-
-    # each tile will cover 200 states
-    tile_width = 200
-
-    # how to put so many tilings
-    tiling_offset = 4
-
-    labels = ['tile coding (50 tilings)', 'state aggregation (one tiling)']
-
-    # track errors for each episode
-    errors = np.zeros((len(labels), episodes))
-    for run in range(runs):
-        # initialize value functions for multiple tilings and single tiling
-        value_functions = [TilingsValueFunction(num_of_tilings, tile_width, tiling_offset),
-                           ValueFunction(N_STATES // tile_width)]
-        for i in range(len(value_functions)):
-            for episode in tqdm(range(episodes)):
-                # I use a changing alpha according to the episode instead of a small fixed alpha
-                # With a small fixed alpha, I don't think 5000 episodes is enough for so many
-                # parameters in multiple tilings.
-                # The asymptotic performance for single tiling stays unchanged under a changing alpha,
-                # however the asymptotic performance for multiple tilings improves significantly
-                alpha = 1.0 / (episode + 1)
-
-                # gradient Monte Carlo algorithm
-                gradient_monte_carlo(value_functions[i], alpha)
-
-                # get state values under current value function
-                state_values = [value_functions[i].value(state) for state in STATES]
-
-                # get the root-mean-squared error
-                errors[i][episode] += np.sqrt(np.mean(np.power(true_value[1: -1] - state_values, 2)))
-
-    # average over independent runs
-    errors /= runs
-
-    for i in range(0, len(labels)):
-        plt.plot(errors[i], label=labels[i])
-    plt.xlabel('Episodes')
-    # The book plots RMSVE, which is RMSE weighted by a state distribution
-    plt.ylabel('RMSE')
-    plt.legend()
-
-    plt.savefig('images/figure_9_10.png')
-    plt.close()
-
-
 if __name__ == '__main__':
     true_value = compute_true_value()
 
-    figure_9_1(true_value)
-    figure_9_2(true_value)
+    # figure_9_1(true_value)
+    # figure_9_2(true_value)
     figure_9_5(true_value)
-    figure_9_10(true_value)
+    # figure_9_10(true_value)

@@ -272,12 +272,12 @@ def print_cost(value_function, episode, ax):
 
 # Figure 10.1, cost to go in a single run
 def figure_10_1():
-    episodes = 9000
+    episodes = 1000
     plot_episodes = [episodes - 1]
     fig = plt.figure(figsize=(40, 10))
     axes = [fig.add_subplot(1, len(plot_episodes), i + 1, projection='3d') for i in range(len(plot_episodes))]
     num_of_tilings = 8
-    alpha = 0.3
+    alpha = 0.4
     value_function = ValueFunction(alpha, num_of_tilings)
     last_ep = None
     for ep in tqdm(range(episodes), ncols=100):
@@ -290,99 +290,5 @@ def figure_10_1():
     plt.close()
 
 
-# Figure 10.2, semi-gradient Sarsa with different alphas
-def figure_10_2():
-    runs = 5
-    episodes = 500
-    num_of_tilings = 8
-    alphas = [0.1, 0.2, 0.5]
-
-    steps = np.zeros((len(alphas), episodes))
-    for run in range(runs):
-        value_functions = [ValueFunction(alpha, num_of_tilings) for alpha in alphas]
-        for index in range(len(value_functions)):
-            for episode in tqdm(range(episodes), ncols=100):
-                steps[index, episode] += semi_gradient_n_step_sarsa(value_functions[index])
-
-    steps /= runs
-
-    for i in range(0, len(alphas)):
-        plt.plot(steps[i], label='alpha = ' + str(alphas[i]) + '/' + str(num_of_tilings))
-    plt.xlabel('Episode')
-    plt.ylabel('Steps per episode')
-    plt.yscale('log')
-    plt.legend()
-
-    plt.savefig('images/figure_10_2.png')
-    plt.close()
-
-
-# Figure 10.3, one-step semi-gradient Sarsa vs multi-step semi-gradient Sarsa
-def figure_10_3():
-    runs = 5
-    episodes = 500
-    num_of_tilings = 8
-    alphas = [0.5, 0.3]
-    n_steps = [1, 8]
-
-    steps = np.zeros((len(alphas), episodes))
-    for run in range(runs):
-        value_functions = [ValueFunction(alpha, num_of_tilings) for alpha in alphas]
-        for index in range(len(value_functions)):
-            for episode in tqdm(range(episodes), ncols=100):
-                steps[index, episode] += semi_gradient_n_step_sarsa(value_functions[index], n_steps[index])
-
-    steps /= runs
-
-    for i in range(0, len(alphas)):
-        plt.plot(steps[i], label='n = %.01f' % (n_steps[i]))
-    plt.xlabel('Episode')
-    plt.ylabel('Steps per episode')
-    plt.yscale('log')
-    plt.legend()
-
-    plt.savefig('images/figure_10_3.png')
-    plt.close()
-
-
-# Figure 10.4, effect of alpha and n on multi-step semi-gradient Sarsa
-def figure_10_4():
-    alphas = np.arange(0.25, 1.75, 0.25)
-    n_steps = np.power(2, np.arange(0, 5))
-    episodes = 50
-    runs = 5
-
-    max_steps = 300
-    steps = np.zeros((len(n_steps), len(alphas)))
-    with tqdm(total=runs * len(n_steps) * len(alphas), ncols=100) as progress:
-        for run in range(runs):
-            for n_step_index, n_step in enumerate(n_steps):
-                for alpha_index, alpha in enumerate(alphas):
-                    progress.update()
-                    if (n_step == 8 and alpha > 1) or \
-                            (n_step == 16 and alpha > 0.75):
-                        # In these cases it won't converge, so ignore them
-                        steps[n_step_index, alpha_index] += max_steps * episodes
-                        continue
-                    value_function = ValueFunction(alpha)
-                    for _ in range(episodes):
-                        steps[n_step_index, alpha_index] += semi_gradient_n_step_sarsa(value_function, n_step)
-
-    # average over independent runs and episodes
-    steps /= runs * episodes
-
-    for i in range(0, len(n_steps)):
-        plt.plot(alphas, steps[i, :], label='n = ' + str(n_steps[i]))
-    plt.xlabel('alpha * number of tilings(8)')
-    plt.ylabel('Steps per episode')
-    plt.legend()
-
-    plt.savefig('images/figure_10_4.png')
-    plt.close()
-
-
 if __name__ == '__main__':
     figure_10_1()
-    # figure_10_2()
-    # figure_10_3()
-    # figure_10_4()
