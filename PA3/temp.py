@@ -52,20 +52,21 @@ class SarsaLambda:
 
     # estimate the value of given state and action
     def value(self, model, action):
-        if model.isTerminal():
-            return 0.0
-        return np.sum(self.weights[self.get_active_tiles(model.getState(), action)])
+        # if model.isTerminal():
+        #     return 0.0
+        # return np.sum(self.weights[self.get_active_tiles(model.getState(), action)])
 
-        # state = model.getState()
-        # state /= float(2)
-        # feature = np.asarray([func(state) for func in self.bases])
-        # return np.dot(self.weights, feature)
+        state = model.getState()
+        state /= float(2)
+        feature = np.asarray([func(state) for func in self.bases])
+
+        return np.dot(self.weights, feature)
 
     # learn with given state, action and target
     def learn(self, state, action, target):
-        # state /= float(2)
-        # derivative_value = np.asarray([func(state) for func in self.bases])
-        # self.weights += delta * derivative_value
+        state /= float(2)
+        derivative_value = np.asarray([func(state) for func in self.bases])
+        self.weights += delta * derivative_value
 
         active_tiles = self.get_active_tiles(state, action)
         delta = target - np.sum(self.weights[active_tiles])
