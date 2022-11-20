@@ -59,10 +59,10 @@ class SarsaLambda:
                      [self.position_scale * state[0], self.velocity_scale * state[1]], [action])
 
     # estimate the value of given state and action
-    def value(self, mountain_car, action):
-        if mountain_car.isTerminal():
+    def value(self, model, action):
+        if model.isTerminal():
             return 0.0
-        return np.sum(self.weights[self.get_active_tiles(mountain_car.getState(), action)])
+        return np.sum(self.weights[self.get_active_tiles(model.getState(), action)])
 
     # learn with given state, action and target
     def learn(self, state, action, target):
@@ -81,20 +81,16 @@ class SarsaLambda:
         self.weights += self.alpha * delta * self.trace
 
     # accumulating trace update rule
-    # @trace: old trace (will be modified)
     # @activeTiles: current active tile indices
-    # @lam: lambda
-    # @return: new trace for convenience
+    # @return: modified trace for convenience
     def accumulating_trace(self, active_tiles, _=None):
         self.trace *= self.lam * self.discount
         self.trace[active_tiles] += 1
         return self.trace
 
     # replacing trace update rule
-    # @trace: old trace (will be modified)
     # @activeTiles: current active tile indices
-    # @lam: lambda
-    # @return: new trace for convenience
+    # @return: modified trace for convenience
     def replacing_trace(self, activeTiles):
         active = np.in1d(np.arange(len(self.trace)), activeTiles)
         self.trace[active] = 1
@@ -102,11 +98,9 @@ class SarsaLambda:
         return self.trace
 
     # replacing trace update rule, 'clearing' means set all tiles corresponding to non-selected actions to 0
-    # @trace: old trace (will be modified)
     # @activeTiles: current active tile indices
-    # @lam: lambda
     # @clearingTiles: tiles to be cleared
-    # @return: new trace for convenience
+    # @return: modified trace for convenience
     def replacing_trace_with_clearing(self, active_tiles, clearing_tiles):
         active = np.in1d(np.arange(len(self.trace)), active_tiles)
         self.trace[~active] *= self.lam * self.discount
@@ -115,11 +109,8 @@ class SarsaLambda:
         return self.trace
 
     # Dutch trace update rule
-    # @trace: old trace (will be modified)
     # @activeTiles: current active tile indices
-    # @lam: lambda
-    # @alpha: step size for all tiles
-    # @return: new trace for convenience
+    # @return: modified trace for convenience
     def dutch_trace(self, active_tiles):
         coef = 1 - self.alpha * self.discount * self.lam * np.sum(self.trace[active_tiles])
         self.trace *= self.discount * self.lam

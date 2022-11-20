@@ -15,36 +15,17 @@ from SarsaLambda import SarsaLambda as sl
 
 matplotlib.use('Agg')
 
-# all possible actions
-ACTION_REVERSE = -1
-ACTION_ZERO = 0
-ACTION_FORWARD = 1
-# order is important
-ACTIONS = [ACTION_REVERSE, ACTION_ZERO, ACTION_FORWARD]
-
-# bound for position and velocity
-POSITION_MIN = -1.2
-POSITION_MAX = 0.5
-VELOCITY_MIN = -0.07
-VELOCITY_MAX = 0.07
-MIN_MAXES = [POSITION_MIN, POSITION_MAX, VELOCITY_MIN, VELOCITY_MAX]
-
-# discount is always 1.0 in these experiments
 DISCOUNT = 1.0
-
-# use optimistic initial value, so it's ok to set epsilon to 0
 EPSILON = 0
-
-# maximum steps per episode
-STEP_LIMIT = 1000
+MAX_STEPS = 1000
 
 
 # get action at @position and @velocity based on epsilon greedy policy and @valueFunction
 def get_action(mountain_car, evaluator):
     if np.random.binomial(1, EPSILON) == 1:
-        return np.random.choice(ACTIONS)
+        return np.random.choice(mountain_car.actions)
     values = []
-    for action in ACTIONS:
+    for action in mountain_car.actions:
         values.append(evaluator.value(mountain_car, action))
     return np.argmax(values) - 1
 
@@ -57,7 +38,7 @@ def play(mountain_car, evaluator):
     action = get_action(mountain_car, evaluator)
     steps = 1
 
-    while steps < STEP_LIMIT:
+    while steps < MAX_STEPS:
         if mountain_car.isTerminal():
             return steps
 
@@ -71,14 +52,13 @@ def play(mountain_car, evaluator):
         action = next_action
         steps += 1
 
-    # print('Step Limit Exceeded!')
     return steps
 
 
 # figure 12.10, effect of the lambda and alpha on early performance of Sarsa(lambda)
 def figure_12_10():
     mountain_car = MountainCar()
-    sarsa_lam = sl(ACTIONS, MIN_MAXES, DISCOUNT)
+    sarsa_lam = sl(mountain_car.actions, mountain_car.min_maxes, DISCOUNT)
 
     runs = 5
     episodes = 50
@@ -113,7 +93,7 @@ def figure_12_10():
 # I use 8 tilings rather than 10 tilings
 def figure_12_11():
     mountain_car = MountainCar()
-    sarsa_lam = sl(ACTIONS, MIN_MAXES, DISCOUNT)
+    sarsa_lam = sl(mountain_car.actions, mountain_car.min_maxes, DISCOUNT)
 
     runs = 5
     episodes = 50
@@ -130,7 +110,7 @@ def figure_12_11():
                     for ep in range(episodes):
                         evaluator = sarsa_lam.setEvaluator(alpha, lam, trace)
                         if trace == sarsa_lam.accumulating_trace and alpha > 0.6:
-                            steps = STEP_LIMIT
+                            steps = MAX_STEPS
                         else:
                             steps = play(mountain_car, evaluator)
                         rewards[traceInd, alphaInd, run, ep] = -steps
