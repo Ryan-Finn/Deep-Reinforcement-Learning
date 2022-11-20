@@ -45,9 +45,9 @@ def compute_true_value():
         for state in STATES:
             true_value[state] = 0
             for action in ACTIONS:
-                for step in range(1, STEP_RANGE + 1):
-                    step *= action
-                    next_state = state + step
+                for sp in range(1, STEP_RANGE + 1):
+                    sp *= action
+                    next_state = state + sp
                     next_state = max(min(next_state, N_STATES + 1), 0)
                     # asynchronous update for faster convergence
                     true_value[state] += 1.0 / (2 * STEP_RANGE) * true_value[next_state]
@@ -62,9 +62,9 @@ def compute_true_value():
 
 # take an @action at @state, return new state and reward for this transition
 def step(state, action):
-    step = np.random.randint(1, STEP_RANGE + 1)
-    step *= action
-    state += step
+    sp = np.random.randint(1, STEP_RANGE + 1)
+    sp *= action
+    state += sp
     state = max(min(state, N_STATES + 1), 0)
     if state == 0:
         reward = -1
@@ -82,78 +82,6 @@ def get_action():
     return -1
 
 
-# a wrapper class for aggregation value function
-class ValueFunction:
-    # @num_of_groups: # of aggregations
-    def __init__(self, num_of_groups):
-        self.num_of_groups = num_of_groups
-        self.group_size = N_STATES // num_of_groups
-
-        # thetas
-        self.params = np.zeros(num_of_groups)
-
-    # get the value of @state
-    def value(self, state):
-        if state in END_STATES:
-            return 0
-        group_index = (state - 1) // self.group_size
-        return self.params[group_index]
-
-    # update parameters
-    # @delta: step size * (target - old estimation)
-    # @state: state of current sample
-    def update(self, delta, state):
-        group_index = (state - 1) // self.group_size
-        self.params[group_index] += delta
-
-
-# a wrapper class for tile coding value function
-class TilingsValueFunction:
-    # @num_of_tilings: # of tilings
-    # @tileWidth: each tiling has several tiles, this parameter specifies the width of each tile
-    # @tilingOffset: specifies how tilings are put together
-    def __init__(self, numOfTilings, tileWidth, tilingOffset):
-        self.numOfTilings = numOfTilings
-        self.tileWidth = tileWidth
-        self.tilingOffset = tilingOffset
-
-        # To make sure that each sate is covered by same number of tiles,
-        # we need one more tile for each tiling
-        self.tilingSize = N_STATES // tileWidth + 1
-
-        # weight for each tile
-        self.params = np.zeros((self.numOfTilings, self.tilingSize))
-
-        # For performance, only track the starting position for each tiling
-        # As we have one more tile for each tiling, the starting position will be negative
-        self.tilings = np.arange(-tileWidth + 1, 0, tilingOffset)
-
-    # get the value of @state
-    def value(self, state):
-        stateValue = 0.0
-        # go through all the tilings
-        for tilingIndex in range(0, len(self.tilings)):
-            # find the active tile in current tiling
-            tileIndex = (state - self.tilings[tilingIndex]) // self.tileWidth
-            stateValue += self.params[tilingIndex, tileIndex]
-        return stateValue
-
-    # update parameters
-    # @delta: step size * (target - old estimation)
-    # @state: state of current sample
-    def update(self, delta, state):
-
-        # each state is covered by same number of tilings
-        # so the delta should be divided equally into each tiling (tile)
-        delta /= self.numOfTilings
-
-        # go through all the tilings
-        for tilingIndex in range(0, len(self.tilings)):
-            # find the active tile in current tiling
-            tileIndex = (state - self.tilings[tilingIndex]) // self.tileWidth
-            self.params[tilingIndex, tileIndex] += delta
-
-
 # a wrapper class for polynomial / Fourier -based value function
 POLYNOMIAL_BASES = 0
 FOURIER_BASES = 1
@@ -161,14 +89,15 @@ FOURIER_BASES = 1
 
 class BasesValueFunction:
     # @order: # of bases, each function also has one more constant parameter (called bias in machine learning)
+    # @type: polynomial bases or Fourier bases
     def __init__(self, order):
         self.order = order
         self.weights = np.zeros(order + 1)
 
-        # set up Fourier bases function
+        # set up bases function
         self.bases = []
-        for i in range(0, order + 1):
-            self.bases.append(lambda s, i=i: np.cos(i * np.pi * s))
+        for n in range(order + 1):
+            self.bases.append(lambda s, i=n: np.cos(i * np.pi * s))
 
     # get the value of @state
     def value(self, state):
@@ -210,70 +139,12 @@ def gradient_monte_carlo(value_function, alpha, distribution=None):
             distribution[state] += 1
 
 
-# semi-gradient n-step TD algorithm
-# @valueFunction: an instance of class ValueFunction
-# @n: # of steps
-# @alpha: step size
-def semi_gradient_temporal_difference(value_function, n, alpha):
-    # initial starting state
-    state = START_STATE
-
-    # arrays to store states and rewards for an episode
-    # space isn't a major consideration, so I didn't use the mod trick
-    states = [state]
-    rewards = [0]
-
-    # track the time
-    time = 0
-
-    # the length of this episode
-    T = float('inf')
-    next_state = None
-    while True:
-        # go to next time step
-        time += 1
-
-        if time < T:
-            # choose an action randomly
-            action = get_action()
-            next_state, reward = step(state, action)
-
-            # store new state and new reward
-            states.append(next_state)
-            rewards.append(reward)
-
-            if next_state in END_STATES:
-                T = time
-
-        # get the time of the state to update
-        update_time = time - n
-        if update_time >= 0:
-            returns = 0.0
-            # calculate corresponding rewards
-            for t in range(update_time + 1, min(T, update_time + n) + 1):
-                returns += rewards[t]
-            # add state value to the return
-            if update_time + n <= T:
-                returns += value_function.value(states[update_time + n])
-            state_to_update = states[update_time]
-            # update the value function
-            if state_to_update not in END_STATES:
-                delta = alpha * (returns - value_function.value(state_to_update))
-                value_function.update(delta, state_to_update)
-        if update_time == T - 1:
-            break
-        state = next_state
-
-
 # Figure 9.5, Fourier basis and polynomials
 def figure_9_5(true_value):
-    runs = 5
-
+    runs = 1
     episodes = 1000
-
-    # # of bases
     orders = [3, 5, 7]
-    alpha = 0.4
+    alpha = 5e-5
 
     # track errors for each episode
     errors = np.zeros((len(orders), episodes))
@@ -296,7 +167,7 @@ def figure_9_5(true_value):
     errors /= runs
 
     for j in range(len(orders)):
-        plt.plot(errors[j, :], label='fourier basis order = %d' % orders[j])
+        plt.plot(errors[j, :], label='Order = %d' % orders[j])
     plt.xlabel('Episodes')
     # The book plots RMSVE, which is RMSE weighted by a state distribution
     plt.ylabel('RMSE')
@@ -307,9 +178,4 @@ def figure_9_5(true_value):
 
 
 if __name__ == '__main__':
-    true_value = compute_true_value()
-
-    # figure_9_1(true_value)
-    # figure_9_2(true_value)
-    figure_9_5(true_value)
-    # figure_9_10(true_value)
+    figure_9_5(compute_true_value())

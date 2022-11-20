@@ -16,13 +16,12 @@ class SarsaLambda:
         self.num_of_tilings = num_of_tilings
         self.max_size = max_size
 
-        self.alpha, self.lam, self.trace_updater = None, None, None
-        self.traceTypes = [
-            self.dutch_trace,
-            self.replacing_trace,
-            self.replacing_trace_with_clearing,
-            self.accumulating_trace
-        ]
+        # set up bases function
+        self.bases = []
+        for n in range(3 + 1):
+            self.bases.append(lambda s, i=n: np.cos(i * np.pi * s))
+
+        self.alpha, self.lam = None, None
 
         self.hash_table = IHT(max_size)
 
@@ -36,19 +35,12 @@ class SarsaLambda:
         self.position_scale = self.num_of_tilings / (min_maxes[1] - min_maxes[0])
         self.velocity_scale = self.num_of_tilings / (min_maxes[3] - min_maxes[2])
 
-    def setEvaluator(self, alpha, lam, trace=None):
+    def setEvaluator(self, alpha, lam):
         self.alpha = alpha / self.num_of_tilings
         self.lam = lam
-
-        if trace is None:
-            self.trace_updater = self.replacing_trace
-        else:
-            self.trace_updater = trace
-
         self.hash_table = IHT(self.max_size)
         self.weights = np.zeros(self.max_size)
         self.trace = np.zeros(self.max_size)
-
         return self
 
     # get indices of active tiles for given state and action
@@ -69,50 +61,16 @@ class SarsaLambda:
         active_tiles = self.get_active_tiles(state, action)
         delta = target - np.sum(self.weights[active_tiles])
 
-        if self.trace_updater != self.replacing_trace_with_clearing:
-            self.trace_updater(active_tiles)
-        else:
-            clearing_tiles = []
-            for act in self.actions:
-                if act != action:
-                    clearing_tiles.extend(self.get_active_tiles(state, act))
-            self.trace_updater(active_tiles, clearing_tiles)
+        # Replacing Trace
+        active = np.in1d(np.arange(len(self.trace)), active_tiles)
+        self.trace[active] = 1
+        self.trace[~active] *= self.lam * self.discount
 
         self.weights += self.alpha * delta * self.trace
 
-    # accumulating trace update rule
-    # @activeTiles: current active tile indices
-    # @return: modified trace for convenience
-    def accumulating_trace(self, active_tiles, _=None):
-        self.trace *= self.lam * self.discount
-        self.trace[active_tiles] += 1
-        return self.trace
-
-    # replacing trace update rule
-    # @activeTiles: current active tile indices
-    # @return: modified trace for convenience
-    def replacing_trace(self, activeTiles):
-        active = np.in1d(np.arange(len(self.trace)), activeTiles)
-        self.trace[active] = 1
-        self.trace[~active] *= self.lam * self.discount
-        return self.trace
-
-    # replacing trace update rule, 'clearing' means set all tiles corresponding to non-selected actions to 0
-    # @activeTiles: current active tile indices
-    # @clearingTiles: tiles to be cleared
-    # @return: modified trace for convenience
-    def replacing_trace_with_clearing(self, active_tiles, clearing_tiles):
-        active = np.in1d(np.arange(len(self.trace)), active_tiles)
-        self.trace[~active] *= self.lam * self.discount
-        self.trace[clearing_tiles] = 0
-        self.trace[active] = 1
-        return self.trace
-
-    # Dutch trace update rule
-    # @activeTiles: current active tile indices
-    # @return: modified trace for convenience
-    def dutch_trace(self, active_tiles):
-        coef = 1 - self.alpha * self.discount * self.lam * np.sum(self.trace[active_tiles])
-        self.trace *= self.discount * self.lam
-        self.trace[active_tiles] += coef
-        return self.trace
+    # get # of steps to reach the goal under current state value function
+    def cost_to_go(self, model):
+        costs = []
+        for action in self.actions:
+            costs.append(self.value(model, action))
+        return -np.max(costs)

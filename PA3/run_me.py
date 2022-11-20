@@ -100,33 +100,26 @@ def figure_12_11():
     alphas = np.arange(1, 8) / 4.0
     lam = 0.9
 
-    traceTypes = sarsa_lam.traceTypes
-    rewards = np.zeros((len(traceTypes), len(alphas), runs, episodes))
+    rewards = np.zeros((len(alphas), runs, episodes))
 
-    with tqdm(total=runs * episodes * len(traceTypes) * len(alphas), ncols=100) as progress:
-        for traceInd, trace in enumerate(traceTypes):
-            for alphaInd, alpha in enumerate(alphas):
-                for run in range(runs):
-                    for ep in range(episodes):
-                        evaluator = sarsa_lam.setEvaluator(alpha, lam, trace)
-                        if trace == sarsa_lam.accumulating_trace and alpha > 0.6:
-                            steps = MAX_STEPS
-                        else:
-                            steps = play(mountain_car, evaluator)
-                        rewards[traceInd, alphaInd, run, ep] = -steps
-                        progress.update()
+    with tqdm(total=runs * episodes * len(alphas), ncols=100) as progress:
+        for alphaInd, alpha in enumerate(alphas):
+            for run in range(runs):
+                for ep in range(episodes):
+                    evaluator = sarsa_lam.setEvaluator(alpha, lam)
+                    steps = play(mountain_car, evaluator)
+                    rewards[alphaInd, run, ep] = -steps
+                    progress.update()
 
     # average over episodes
-    rewards = np.mean(rewards, axis=3)
-
-    # average over runs
     rewards = np.mean(rewards, axis=2)
 
-    for traceInd, trace in enumerate(traceTypes):
-        plt.plot(alphas, rewards[traceInd, :], label=trace.__name__)
+    # average over runs
+    rewards = np.mean(rewards, axis=1)
+
+    plt.plot(alphas, rewards)
     plt.xlabel('alpha * # of tilings (8)')
     plt.ylabel('averaged rewards per episode')
-    plt.legend()
 
     plt.savefig('images/figure_12_11.png')
     plt.close()
