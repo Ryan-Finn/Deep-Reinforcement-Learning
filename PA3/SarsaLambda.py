@@ -10,8 +10,11 @@ class SarsaLambda:
     # View the following webpage for more information
     # http://incompleteideas.net/sutton/tiles/tiles3.html
     # @maxSize: the maximum # of indices
-    def __init__(self, actions, min_maxes, discount, num_of_tilings=8, max_size=2048):
-        self.actions = actions
+    def __init__(self, lam, alpha, model, discount=1, num_of_tilings=8, max_size=2048):
+        self.lam = lam
+        self.alpha = alpha / num_of_tilings
+        self.model = model
+
         self.discount = discount
         self.num_of_tilings = num_of_tilings
         self.max_size = max_size
@@ -20,8 +23,6 @@ class SarsaLambda:
         self.bases = []
         for n in range(3 + 1):
             self.bases.append(lambda s, i=n: np.cos(i * np.pi * s))
-
-        self.alpha, self.lam = None, None
 
         self.hash_table = IHT(max_size)
 
@@ -32,16 +33,8 @@ class SarsaLambda:
         self.trace = np.zeros(max_size)
 
         # position and velocity needs scaling to satisfy the tile software
-        self.position_scale = self.num_of_tilings / (min_maxes[1] - min_maxes[0])
-        self.velocity_scale = self.num_of_tilings / (min_maxes[3] - min_maxes[2])
-
-    def setEvaluator(self, alpha, lam):
-        self.alpha = alpha / self.num_of_tilings
-        self.lam = lam
-        self.hash_table = IHT(self.max_size)
-        self.weights = np.zeros(self.max_size)
-        self.trace = np.zeros(self.max_size)
-        return self
+        self.position_scale = self.num_of_tilings / (model.min_maxes[1] - model.min_maxes[0])
+        self.velocity_scale = self.num_of_tilings / (model.min_maxes[3] - model.min_maxes[2])
 
     # get indices of active tiles for given state and action
     def get_active_tiles(self, state, action):
@@ -51,22 +44,13 @@ class SarsaLambda:
                      [self.position_scale * state[0], self.velocity_scale * state[1]], [action])
 
     # estimate the value of given state and action
-    def value(self, model, action):
-        if model.isTerminal():
+    def value(self, action):
+        if self.model.isTerminal():
             return 0.0
-        return np.sum(self.weights[self.get_active_tiles(model.getState(), action)])
-
-        # state = model.getState()
-        # state /= float(2)
-        # feature = np.asarray([func(state) for func in self.bases])
-        # return np.dot(self.weights, feature)
+        return np.sum(self.weights[self.get_active_tiles(self.model.getState(), action)])
 
     # learn with given state, action and target
     def learn(self, state, action, target):
-        # state /= float(2)
-        # derivative_value = np.asarray([func(state) for func in self.bases])
-        # self.weights += delta * derivative_value
-
         active_tiles = self.get_active_tiles(state, action)
         delta = target - np.sum(self.weights[active_tiles])
 
@@ -78,8 +62,8 @@ class SarsaLambda:
         self.weights += self.alpha * delta * self.trace
 
     # get # of steps to reach the goal under current state value function
-    def cost_to_go(self, model):
+    def cost_to_go(self):
         costs = []
-        for action in self.actions:
-            costs.append(self.value(model, action))
+        for action in self.model.actions:
+            costs.append(self.value(action))
         return -np.max(costs)

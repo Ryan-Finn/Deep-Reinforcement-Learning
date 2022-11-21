@@ -13,10 +13,12 @@ class MountainCar:
     def reset(self):
         self.x = np.random.uniform(-0.6, -0.4)
         self.v = 0.0
+        return self
 
     def set(self, state: [float, float]):
         self.x = state[0]
         self.v = state[1]
+        return self
 
     def update(self, action) -> [float, float]:
         self.v += 0.001 * action - 0.0025 * np.cos(np.pi * self.x)

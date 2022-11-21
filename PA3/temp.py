@@ -22,10 +22,7 @@ class SarsaLambda:
             self.consts.append(const)
             self.alphas.append(alpha / np.linalg.norm(const))
 
-        # weight for each tile
         self.weights = np.zeros(self.num_bases)
-
-        # trace for each tile
         self.trace = np.zeros(self.num_bases)
 
     # estimate the value of given state and action
@@ -48,11 +45,10 @@ class SarsaLambda:
         features = np.array(features)
 
         self.model.set(prev)
-        # print(self.weights, features)
         return np.dot(self.weights, features)
 
     # learn with given state and delta
-    def learn(self, state, delta):
+    def learn(self, state, _, delta):
         for i in range(len(state)):
             state[i] = (state[i] - self.model.min_maxes[i * 2]) /\
                        (self.model.min_maxes[i * 2 + 1] - self.model.min_maxes[i * 2])
