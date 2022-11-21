@@ -14,9 +14,9 @@ class MountainCar:
         self.x = np.random.uniform(-0.6, -0.4)
         self.v = 0.0
 
-    def set(self, position: float, velocity: float):
-        self.x = position
-        self.v = velocity
+    def set(self, state: [float, float]):
+        self.x = state[0]
+        self.v = state[1]
 
     def update(self, action) -> [float, float]:
         self.v += 0.001 * action - 0.0025 * np.cos(np.pi * self.x)

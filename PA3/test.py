@@ -11,11 +11,12 @@ import numpy as np
 from tqdm import tqdm
 
 from MountainCar import MountainCar
-from SarsaLambda import SarsaLambda as sl
+# from SarsaLambda import SarsaLambda as sl
+from temp import SarsaLambda as sl
 
 DISCOUNT = 1.0
 EPSILON = 0
-MAX_STEPS = 1000
+MAX_STEPS = 10
 
 
 # get action at @position and @velocity based on epsilon greedy policy and @valueFunction
@@ -24,7 +25,7 @@ def get_action(mountain_car, evaluator):
         return np.random.choice(mountain_car.actions)
     values = []
     for action in mountain_car.actions:
-        values.append(evaluator.value(mountain_car, action))
+        values.append(evaluator.value(action))
     return np.argmax(values) - 1
 
 
@@ -43,8 +44,8 @@ def play(mountain_car, evaluator):
         next_state = mountain_car.update(action)
         next_action = get_action(mountain_car, evaluator)
 
-        target = -1 + DISCOUNT * evaluator.value(mountain_car, next_action)
-        evaluator.learn(state, action, target)
+        target = -1 + DISCOUNT * evaluator.value(next_action)
+        evaluator.learn(state, target)
 
         state = next_state
         action = next_action
@@ -55,7 +56,7 @@ def play(mountain_car, evaluator):
 
 # print learned cost to go
 def print_cost(model, value_function, episode, ax):
-    grid_size = 40
+    grid_size = 4
     positions = np.linspace(model.min_maxes[0], model.min_maxes[1], grid_size)
     velocities = np.linspace(model.min_maxes[2], model.min_maxes[3], grid_size)
     axis_x = []
@@ -65,8 +66,9 @@ def print_cost(model, value_function, episode, ax):
         for velocity in velocities:
             axis_x.append(position)
             axis_y.append(velocity)
-            model.set(position, velocity)
-            axis_z.append(value_function.cost_to_go(model))
+            model.set([position, velocity])
+            axis_z.append(value_function.cost_to_go())
+            print()
 
     ax.scatter(axis_x, axis_y, axis_z)
     ax.set_xlabel('Position')
@@ -77,14 +79,12 @@ def print_cost(model, value_function, episode, ax):
 
 # Figure 10.1, cost to go in a single run
 def figure_10_1():
-    episodes = 1000
+    episodes = 1
     fig = plt.figure(figsize=(10, 10))
     axes = fig.add_subplot(projection='3d')
-    alpha = 0.4
 
     mountain_car = MountainCar()
-    sarsa_lam = sl(mountain_car.actions, mountain_car.min_maxes, DISCOUNT)
-    sarsa_lam = sarsa_lam.setEvaluator(alpha, 0.9)
+    sarsa_lam = sl(0.9, 0.4, mountain_car)
 
     last_ep = None
     for ep in tqdm(range(episodes), ncols=100):

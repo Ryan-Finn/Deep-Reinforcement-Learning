@@ -1,77 +1,68 @@
 import numpy as np
-
-from Tiles import IHT, tiles
+from itertools import product as prod
+from random import sample
 
 
 class SarsaLambda:
-    # In this example I use the tiling software instead of implementing standard tiling by myself
-    # One important thing is that tiling is only a map from (state, action) to a series of indices
-    # It doesn't matter whether the indices have meaning, only if this map satisfy some property
-    # View the following webpage for more information
-    # http://incompleteideas.net/sutton/tiles/tiles3.html
-    # @maxSize: the maximum # of indices
-    def __init__(self, actions, min_maxes, discount, num_of_tilings=8, max_size=2048):
-        self.actions = actions
-        self.discount = discount
-        self.num_of_tilings = num_of_tilings
-        self.max_size = max_size
+    def __init__(self, lam, alpha, model, order=3, dims=2):
+        self.lam = lam
+        self.alphas = [alpha]
+        self.model = model
+        self.order = order
+        self.dims = dims
 
         # set up bases function
-        self.bases = []
-        for n in range(3 + 1):
-            c = []
-            for d in range(2):
-                c.append(d)
-            self.bases.append(lambda s: np.cos(np.pi * c * s))
-
-        self.alpha, self.lam = None, None
-
-        self.hash_table = IHT(max_size)
+        self.num_bases = (order + 1) ** dims
+        self.bases = lambda s, c: np.cos(np.pi * np.dot(s, c))
+        all_consts = list(prod(range(order + 1), repeat=dims))
+        self.consts = [np.array(all_consts[0])]
+        all_consts.remove(all_consts[0])
+        for const in sample(all_consts, self.num_bases - 1):
+            const = np.array(const)
+            self.consts.append(const)
+            self.alphas.append(alpha / np.linalg.norm(const))
 
         # weight for each tile
-        self.weights = np.zeros(3 + 1)
+        self.weights = np.zeros(self.num_bases)
 
         # trace for each tile
-        self.trace = np.zeros(max_size)
-
-        # position and velocity needs scaling to satisfy the tile software
-        self.position_scale = self.num_of_tilings / (min_maxes[1] - min_maxes[0])
-        self.velocity_scale = self.num_of_tilings / (min_maxes[3] - min_maxes[2])
-
-    def setEvaluator(self, alpha, lam):
-        self.alpha = alpha  # / self.num_of_tilings
-        self.lam = lam
-        self.hash_table = IHT(self.max_size)
-        self.weights = np.zeros(3 + 1)
-        self.trace = np.zeros(self.max_size)
-        return self
-
-    # get indices of active tiles for given state and action
-    def get_active_tiles(self, state, action):
-        # I think positionScale * (position - position_min) would be a good normalization.
-        # However, positionScale * position_min is a constant, so it's ok to ignore it.
-        return tiles(self.hash_table, self.num_of_tilings,
-                     [self.position_scale * state[0], self.velocity_scale * state[1]], [action])
+        self.trace = np.zeros(self.num_bases)
 
     # estimate the value of given state and action
-    def value(self, model, action):
-        if model.isTerminal():
+    def value(self, action):
+        if self.model.isTerminal():
             return 0.0
 
-        # return np.sum(self.weights[self.get_active_tiles(model.getState(), action)])
+        prev = self.model.getState()
 
-        state = model.getState()
-        state /= float(self.max_size)
-        feature = np.asarray([func(state) for func in self.bases])
+        self.model.update(action)
+        state = self.model.getState()
+        for i in range(len(state)):
+            state[i] = (state[i] - self.model.min_maxes[i * 2]) /\
+                       (self.model.min_maxes[i * 2 + 1] - self.model.min_maxes[i * 2])
+        state = np.array(state)
 
-        return np.dot(self.weights, feature)
+        features = []
+        for i in range(self.num_bases):
+            features.append(self.bases(state, self.consts[i]))
+        features = np.array(features)
 
-    # learn with given state, action and target
-    def learn(self, state, action, delta):
-        state /= float(self.max_size)
-        derivative_value = np.asarray([func(state) for func in self.bases])
-        # delta = self.alpha * (reward - self.value(model, action))
-        self.weights += self.alpha * delta * derivative_value
+        self.model.set(prev)
+        print(self.weights, features)
+        return np.dot(self.weights, features)
+
+    # learn with given state and delta
+    def learn(self, state, delta):
+        for i in range(len(state)):
+            state[i] = (state[i] - self.model.min_maxes[i * 2]) /\
+                       (self.model.min_maxes[i * 2 + 1] - self.model.min_maxes[i * 2])
+        state = np.array(state)
+
+        for i in range(self.num_bases):
+            delta -= self.weights * self.bases(state, self.consts[i])
+
+        for i in range(self.num_bases):
+            self.weights[i] += self.lam * self.alphas[i] * delta
 
         # active_tiles = self.get_active_tiles(state, action)
         # delta = target - np.sum(self.weights[active_tiles])
@@ -84,8 +75,8 @@ class SarsaLambda:
         # self.weights += self.alpha * delta * self.trace
 
     # get # of steps to reach the goal under current state value function
-    def cost_to_go(self, model):
+    def cost_to_go(self):
         costs = []
-        for action in self.actions:
-            costs.append(self.value(model, action))
+        for action in self.model.actions:
+            costs.append(self.value(action))
         return -np.max(costs)
