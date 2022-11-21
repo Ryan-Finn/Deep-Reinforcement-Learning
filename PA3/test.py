@@ -56,7 +56,7 @@ def play(mountain_car, evaluator):
 
 # print learned cost to go
 def print_cost(model, value_function, episode, ax):
-    grid_size = 4
+    grid_size = 40
     positions = np.linspace(model.min_maxes[0], model.min_maxes[1], grid_size)
     velocities = np.linspace(model.min_maxes[2], model.min_maxes[3], grid_size)
     axis_x = []
@@ -68,7 +68,6 @@ def print_cost(model, value_function, episode, ax):
             axis_y.append(velocity)
             model.set([position, velocity])
             axis_z.append(value_function.cost_to_go())
-            print()
 
     ax.scatter(axis_x, axis_y, axis_z)
     ax.set_xlabel('Position')
@@ -79,7 +78,8 @@ def print_cost(model, value_function, episode, ax):
 
 # Figure 10.1, cost to go in a single run
 def figure_10_1():
-    episodes = 1
+    episodes = 1000
+    orders = [3, 5, 7]
     fig = plt.figure(figsize=(10, 10))
     axes = fig.add_subplot(projection='3d')
 

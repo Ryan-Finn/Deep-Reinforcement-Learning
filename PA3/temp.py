@@ -48,7 +48,7 @@ class SarsaLambda:
         features = np.array(features)
 
         self.model.set(prev)
-        print(self.weights, features)
+        # print(self.weights, features)
         return np.dot(self.weights, features)
 
     # learn with given state and delta
@@ -59,7 +59,7 @@ class SarsaLambda:
         state = np.array(state)
 
         for i in range(self.num_bases):
-            delta -= self.weights * self.bases(state, self.consts[i])
+            delta -= self.weights[i] * self.bases(state, self.consts[i])
 
         for i in range(self.num_bases):
             self.weights[i] += self.lam * self.alphas[i] * delta
