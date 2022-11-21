@@ -19,14 +19,17 @@ class SarsaLambda:
         # set up bases function
         self.bases = []
         for n in range(3 + 1):
-            self.bases.append(lambda s, i=n: np.cos(i * np.pi * s))
+            c = []
+            for d in range(2):
+                c.append(d)
+            self.bases.append(lambda s: np.cos(np.pi * c * s))
 
         self.alpha, self.lam = None, None
 
         self.hash_table = IHT(max_size)
 
         # weight for each tile
-        self.weights = np.zeros(self.max_size)
+        self.weights = np.zeros(3 + 1)
 
         # trace for each tile
         self.trace = np.zeros(max_size)
@@ -36,10 +39,10 @@ class SarsaLambda:
         self.velocity_scale = self.num_of_tilings / (min_maxes[3] - min_maxes[2])
 
     def setEvaluator(self, alpha, lam):
-        self.alpha = alpha / self.num_of_tilings
+        self.alpha = alpha  # / self.num_of_tilings
         self.lam = lam
         self.hash_table = IHT(self.max_size)
-        self.weights = np.zeros(self.max_size)
+        self.weights = np.zeros(3 + 1)
         self.trace = np.zeros(self.max_size)
         return self
 
@@ -52,31 +55,33 @@ class SarsaLambda:
 
     # estimate the value of given state and action
     def value(self, model, action):
-        # if model.isTerminal():
-        #     return 0.0
+        if model.isTerminal():
+            return 0.0
+
         # return np.sum(self.weights[self.get_active_tiles(model.getState(), action)])
 
         state = model.getState()
-        state /= float(2)
+        state /= float(self.max_size)
         feature = np.asarray([func(state) for func in self.bases])
 
         return np.dot(self.weights, feature)
 
     # learn with given state, action and target
-    def learn(self, state, action, target):
-        state /= float(2)
+    def learn(self, state, action, delta):
+        state /= float(self.max_size)
         derivative_value = np.asarray([func(state) for func in self.bases])
-        self.weights += delta * derivative_value
+        # delta = self.alpha * (reward - self.value(model, action))
+        self.weights += self.alpha * delta * derivative_value
 
-        active_tiles = self.get_active_tiles(state, action)
-        delta = target - np.sum(self.weights[active_tiles])
-
-        # Replacing Trace
-        active = np.in1d(np.arange(len(self.trace)), active_tiles)
-        self.trace[active] = 1
-        self.trace[~active] *= self.lam * self.discount
-
-        self.weights += self.alpha * delta * self.trace
+        # active_tiles = self.get_active_tiles(state, action)
+        # delta = target - np.sum(self.weights[active_tiles])
+        #
+        # # Replacing Trace
+        # active = np.in1d(np.arange(len(self.trace)), active_tiles)
+        # self.trace[active] = 1
+        # self.trace[~active] *= self.lam * self.discount
+        #
+        # self.weights += self.alpha * delta * self.trace
 
     # get # of steps to reach the goal under current state value function
     def cost_to_go(self, model):
