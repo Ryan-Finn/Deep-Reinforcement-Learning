@@ -23,7 +23,7 @@ class SarsaLambda:
             self.alphas.append(alpha / np.linalg.norm(const))
 
         self.weights = np.zeros(self.num_bases)
-        self.trace = np.zeros(self.num_bases)
+        self.trace = np.zeros(np.floor(np.log2(0.05) / np.log2(lam)))
 
     # estimate the value of given state and action
     def value(self, action):
