@@ -23,7 +23,11 @@ class SarsaLambda:
             self.alphas.append(alpha / np.linalg.norm(const))
 
         self.weights = np.zeros(self.num_bases)
-        self.trace = np.zeros(np.floor(np.log2(0.05) / np.log2(lam)))
+        self.trace = np.zeros(int(np.ceil(np.log2(0.05) / np.log2(lam)) + 1))
+        self.trace[0] = 1
+        for i in range(1, len(self.trace)):
+            self.trace[i] = self.trace[i - 1] * lam
+        print(len(self.trace), self.trace)
 
     # estimate the value of given state and action
     def value(self, action):
@@ -41,7 +45,7 @@ class SarsaLambda:
 
         features = []
         for i in range(self.num_bases):
-            features.append(self.bases(state, self.consts[i]))
+            features.append(self.alphas[i] * self.bases(state, self.consts[i]))
         features = np.array(features)
 
         self.model.set(prev)
@@ -49,16 +53,27 @@ class SarsaLambda:
 
     # learn with given state and delta
     def learn(self, state, _, delta):
+        # Normalize the state | x = (x - x_min) / (x_max - x_min)
         for i in range(len(state)):
             state[i] = (state[i] - self.model.min_maxes[i * 2]) /\
                        (self.model.min_maxes[i * 2 + 1] - self.model.min_maxes[i * 2])
         state = np.array(state)
 
+        features = []
         for i in range(self.num_bases):
-            delta -= self.weights[i] * self.bases(state, self.consts[i])
+            features.append(self.alphas[i] * self.bases(state, self.consts[i]))
+        features = np.array(features)
 
-        for i in range(self.num_bases):
-            self.weights[i] += self.lam * self.alphas[i] * delta
+        self.trace *= self.lam
+        self.trace = np.roll(self.trace, 1)
+        self.trace[0] = np.dot(self.weights, features)
+        print(self.trace, np.dot(self.weights, features))
+
+        # delta -= np.sum(self.weights)
+
+        sum_trace = np.sum(self.trace)
+
+        self.weights += sum_trace * delta
 
         # active_tiles = self.get_active_tiles(state, action)
         # delta = target - np.sum(self.weights[active_tiles])

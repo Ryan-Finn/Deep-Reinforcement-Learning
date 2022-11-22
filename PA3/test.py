@@ -35,6 +35,7 @@ def play(mountain_car, evaluator):
     mountain_car.reset()
     state = mountain_car.getState()
     action = get_action(mountain_car, evaluator)
+    Q = evaluator.value(action)
     steps = 1
 
     while steps < MAX_STEPS:
@@ -44,9 +45,11 @@ def play(mountain_car, evaluator):
         next_state = mountain_car.update(action)
         next_action = get_action(mountain_car, evaluator)
 
-        target = -1 + DISCOUNT * evaluator.value(next_action)
-        evaluator.learn(state, action, target)
+        Qp = evaluator.value(next_action)
+        delta = -1 + DISCOUNT * Qp - Q
+        evaluator.learn(state, action, delta)
 
+        Q = Qp
         state = next_state
         action = next_action
         steps += 1
@@ -125,7 +128,7 @@ def figure_2(order):
 
 
 if __name__ == '__main__':
-    figure_1()
-    # figure_2(3)
+    # figure_1()
+    figure_2(3)
     # figure_2(5)
     # figure_2(7)
