@@ -29,6 +29,16 @@ class SarsaLambda:
             self.trace[i] = self.trace[i - 1] * lam
         print(len(self.trace), self.trace)
 
+    def normalize(self):
+        state = self.model.getState()
+        for i in range(len(state)):
+            state[i] = (state[i] - self.model.min_maxes[i * 2]) /\
+                       (self.model.min_maxes[i * 2 + 1] - self.model.min_maxes[i * 2])
+        return np.array(state)
+
+    def getBasisFuncs(self, action):
+
+
     # estimate the value of given state and action
     def value(self, action):
         if self.model.isTerminal():
@@ -37,11 +47,7 @@ class SarsaLambda:
         prev = self.model.getState()
 
         self.model.update(action)
-        state = self.model.getState()
-        for i in range(len(state)):
-            state[i] = (state[i] - self.model.min_maxes[i * 2]) /\
-                       (self.model.min_maxes[i * 2 + 1] - self.model.min_maxes[i * 2])
-        state = np.array(state)
+        state = self.normalize()
 
         features = []
         for i in range(self.num_bases):

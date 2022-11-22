@@ -32,11 +32,12 @@ def get_action(mountain_car, evaluator):
 # play Mountain Car for one episode based on given method @evaluator
 # @return: total steps in this episode
 def play(mountain_car, evaluator):
+    steps = 1
     mountain_car.reset()
     state = mountain_car.getState()
+
     action = get_action(mountain_car, evaluator)
     Q = evaluator.value(action)
-    steps = 1
 
     while steps < MAX_STEPS:
         if mountain_car.isTerminal():
