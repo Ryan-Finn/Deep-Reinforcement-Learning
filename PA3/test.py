@@ -1,11 +1,7 @@
-#######################################################################
-# Copyright (C)                                                       #
-# 2016-2018 Shangtong Zhang(zhangshangtong.cpp@gmail.com)             #
-# 2016 Kenta Shimada(hyperkentakun@gmail.com)                         #
-# Permission given to modify the code as long as you keep this        #
-# declaration at the top                                              #
-#######################################################################
+import contextlib
+from os import cpu_count
 
+import joblib
 import matplotlib.pyplot as plt
 import numpy as np
 from tqdm import tqdm
@@ -14,122 +10,95 @@ from MountainCar import MountainCar
 # from SarsaLambda import SarsaLambda as sl
 from temp import SarsaLambda as sl
 
-DISCOUNT = 1.0
-EPSILON = 0
-MAX_STEPS = 1000
+LAMBDA = 0.9
+ALPHA = 1e-2
+GAMMA = 1.0
+EPSILON = 0.0
+EPISODES = 100
+RUNS = max(cpu_count() - 1, 1)
+MAX_STEPS = 2000
 
 
-# get action at @position and @velocity based on epsilon greedy policy and @valueFunction
-def get_action(mountain_car, evaluator):
-    if np.random.binomial(1, EPSILON) == 1:
-        return np.random.choice(mountain_car.actions)
-    values = []
-    for action in mountain_car.actions:
-        values.append(evaluator.value(action))
-    return np.argmax(values) - 1
+@contextlib.contextmanager
+def tqdm_joblib(tqdm_object):
+    """Context manager to patch joblib to report into tqdm progress bar given as argument"""
+
+    class TqdmBatchCompletionCallback(joblib.parallel.BatchCompletionCallBack):
+        def __call__(self, *args, **kwargs):
+            tqdm_object.update(n=self.batch_size)
+            return super().__call__(*args, **kwargs)
+
+    old_batch_callback = joblib.parallel.BatchCompletionCallBack
+    joblib.parallel.BatchCompletionCallBack = TqdmBatchCompletionCallback
+    try:
+        yield tqdm_object
+    finally:
+        joblib.parallel.BatchCompletionCallBack = old_batch_callback
+        tqdm_object.close()
 
 
-# play Mountain Car for one episode based on given method @evaluator
-# @return: total steps in this episode
-def play(mountain_car, evaluator):
-    steps = 1
-    mountain_car.reset()
-    state = mountain_car.getState()
-
-    action = get_action(mountain_car, evaluator)
-    Q = evaluator.value(action)
-
-    while steps < MAX_STEPS:
-        if mountain_car.isTerminal():
-            return steps
-
-        next_state = mountain_car.update(action)
-        next_action = get_action(mountain_car, evaluator)
-
-        Qp = evaluator.value(next_action)
-        delta = -1 + DISCOUNT * Qp - Q
-        evaluator.learn(state, action, delta)
-
-        Q = Qp
-        state = next_state
-        action = next_action
-        steps += 1
-
-    return steps
-
-
-# print learned cost to go
-def print_cost(model, value_function, episode, ax):
-    grid_size = 40
+def learn(order, grid_size, run):
+    x, y, z = [], [], []
+    model = MountainCar()
+    steps = np.zeros(EPISODES)
+    sarsa_lam = sl(model, LAMBDA, ALPHA, GAMMA, EPSILON, order, MAX_STEPS)
     positions = np.linspace(model.min_maxes[0], model.min_maxes[1], grid_size)
     velocities = np.linspace(model.min_maxes[2], model.min_maxes[3], grid_size)
-    axis_x = []
-    axis_y = []
-    axis_z = []
+
+    with tqdm(total=EPISODES, desc='Run: %d' % (run + 1), leave=False) as progress:
+        for episode in range(EPISODES):
+            steps[episode] = sarsa_lam.playEpisode()
+            progress.update()
+
     for position in positions:
         for velocity in velocities:
-            axis_x.append(position)
-            axis_y.append(velocity)
             model.set([position, velocity])
-            axis_z.append(value_function.cost_to_go())
+            x.append(position)
+            y.append(velocity)
+            z.append(sarsa_lam.cost_to_go())
 
-    ax.scatter(axis_x, axis_y, axis_z)
-    ax.set_xlabel('Position')
-    ax.set_ylabel('Velocity')
-    ax.set_zlabel('Cost to go')
-    ax.set_title('Episode %d' % episode)
+    return steps, x, y, z
 
 
-# Figure 1, steps per episode
-def figure_1():
-    runs = 20
-    episodes = 50
+def main():
+    grid_size = 40
     orders = [3]  # , 5, 7]
+    steps = np.zeros((len(orders), EPISODES))
+    x = np.zeros((len(orders), grid_size ** 2))
+    y = np.zeros((len(orders), grid_size ** 2))
+    z = np.zeros((len(orders), grid_size ** 2))
 
-    mountain_car = MountainCar()
+    with joblib.Parallel(n_jobs=RUNS) as parallel:
+        with tqdm_joblib(tqdm(desc="Fourier SARSA(Lambda)", total=len(orders) * RUNS, ncols=100)):
+            for i in range(len(orders)):
+                results = parallel(joblib.delayed(learn)(orders[i], grid_size, run) for run in range(RUNS))
+                steps[i, :] = np.sum([r[0] for r in results], axis=0) / RUNS
+                x[i, :] = np.sum([r[1] for r in results], axis=0) / RUNS
+                y[i, :] = np.sum([r[2] for r in results], axis=0) / RUNS
+                z[i, :] = np.sum([r[3] for r in results], axis=0) / RUNS
 
-    steps = np.zeros((len(orders), episodes))
-    with tqdm(total=runs * episodes * len(orders), ncols=100) as progress:
-        for i in range(len(orders)):
-            for run in range(runs):
-                sarsa_lam = sl(0.9, 0.4, mountain_car, orders[i])
-                for episode in range(episodes):
-                    steps[i, episode] += play(mountain_car, sarsa_lam)
-                    progress.update()
-
-    # average over episodes
-    steps /= runs
-
+    # Figure 1
     for i, order in enumerate(orders):
-        plt.plot(steps[i, :], label='Order = %d' % order)
+        plt.plot(steps[i], label='Order = %d' % order)
     plt.xlabel('Episodes')
     plt.ylabel('Steps')
+    # plt.yscale('log')
     plt.legend()
-
     plt.savefig('images/figure_1.png')
     plt.close()
 
-
-# Figure 2, cost to go in a single run
-def figure_2(order):
-    episodes = 100
-    fig = plt.figure(figsize=(10, 10))
-    axes = fig.add_subplot(projection='3d')
-
-    mountain_car = MountainCar()
-    sarsa_lam = sl(0.9, 0.4, mountain_car, order)
-
-    for _ in tqdm(range(episodes), ncols=100):
-        play(mountain_car, sarsa_lam)
-
-    print_cost(mountain_car, sarsa_lam, episodes, axes)
-
-    plt.savefig('images/figure_2_O(%d).png' % order)
-    plt.close()
+    # Figures 2 - 4
+    for i, order in enumerate(orders):
+        fig = plt.figure(figsize=(10, 10))
+        ax = fig.add_subplot(projection='3d')
+        ax.scatter(x[i], y[i], z[i])
+        ax.set_xlabel('Position')
+        ax.set_ylabel('Velocity')
+        ax.set_zlabel('Cost to go')
+        ax.set_title('O(%d)\nEpisode %d' % (order, EPISODES))
+        plt.savefig('images/figure_%d.png' % (i + 2))
+        plt.close()
 
 
 if __name__ == '__main__':
-    # figure_1()
-    figure_2(3)
-    # figure_2(5)
-    # figure_2(7)
+    main()

@@ -18,11 +18,12 @@ class SarsaLambda:
 
         # set up basis function
         all_consts = list(prod(range(order + 1), repeat=self.dims))
+        self.basis = [lambda s: np.cos(np.pi * np.dot(s, np.array(all_consts[0])))]
         all_consts.remove(all_consts[0])
-        self.basis = [lambda _: 1]
+
         for c in all_consts:
             c = np.array(c)
-            self.basis.append(lambda s: np.cos(np.pi * np.dot(s, c) / 2))
+            self.basis.append(lambda s: np.cos(np.pi * np.dot(s, c)))
             self.alphas.append(alpha / np.linalg.norm(c))
         self.alphas = np.array(self.alphas)
 
@@ -31,44 +32,46 @@ class SarsaLambda:
     def normalize(self, s):
         S = s.copy()
         for i in range(len(S)):
-            S[i] = (S[i] - self.model.min_maxes[i * 2]) /\
+            S[i] = (S[i] - self.model.min_maxes[i * 2]) / \
                    (self.model.min_maxes[i * 2 + 1] - self.model.min_maxes[i * 2])
         return np.array(S)
 
-    def getAction(self, S) -> int:
+    def getAction(self, phi) -> int:
         if np.random.uniform() <= self.epsilon:
             return np.random.choice(self.model.actions)
-        return self.model.actions[np.argmax([self.value(S, A) for A in self.model.actions])]
+        return self.model.actions[np.argmax([self.value(phi, A) for A in self.model.actions])]
 
     # estimate the value of given state and action
-    def value(self, S, A: int) -> float:
-        if self.model.isTerminal(S):
-            return 0.0
-
-        phi = np.array([feature(self.normalize(S)) for feature in self.basis])
+    def value(self, phi, A: int) -> float:
         return float(np.dot(self.weights[:, self.model.actions.index(A)], phi))
 
     def playEpisode(self) -> int:
         self.model.reset()
         S = self.model.getState()
-        A = self.getAction(S)
         phi = np.array([feature(self.normalize(S)) for feature in self.basis])
+        A = self.getAction(phi)
         z = np.zeros((self.num_bases, len(self.model.actions)))
-        Q_old = 0
 
         for steps in range(self.max_steps):
-            A_ind = self.model.actions.index(A)
             R, S_p = self.model.update(A)
-            A_p = self.getAction(S_p)
-            Q = self.value(S, A)
-            Q_p = self.value(S_p, A_p)
-            z[:, A_ind] = self.gamma * self.lam * z[:, A_ind] +\
-                          (1 - self.gamma * self.lam * np.dot(z[:, A_ind], np.multiply(self.alphas, phi))) * phi
-            self.weights[:, A_ind] +=\
-                (R + self.gamma * Q_p - Q_old) * np.multiply(self.alphas, z[:, A_ind]) -\
-                (Q - Q_old) * np.multiply(self.alphas, phi)
-            Q_old = Q_p
-            phi = np.array([feature(self.normalize(S_p)) for feature in self.basis])
+            phi_p = np.array([feature(self.normalize(S_p)) for feature in self.basis])
+            A_p = self.getAction(phi_p)
+            A_ind = self.model.actions.index(A_p)
+            Q = np.dot(self.weights[:, self.model.actions.index(A)], phi)
+            Q_p = np.dot(self.weights[:, A_ind], phi_p)
+
+            delta = R - Q
+            if not self.model.isTerminal():
+                delta += self.gamma * Q_p
+
+            z[:, A_ind] = phi
+
+            for a in range(len(self.model.actions)):
+                self.weights[:, a] += delta * np.multiply(self.alphas, z[:, a])
+
+            z *= self.gamma * self.lam
+
+            phi = phi_p
             A = A_p
 
             if self.model.isTerminal():
@@ -79,4 +82,5 @@ class SarsaLambda:
     # get # of steps to reach the goal under current state value function
     def cost_to_go(self) -> float:
         S = self.model.getState()
-        return -max([self.value(S, A) for A in self.model.actions])
+        phi = np.array([feature(self.normalize(S)) for feature in self.basis])
+        return -max([self.value(phi, A) for A in self.model.actions])

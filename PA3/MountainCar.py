@@ -13,14 +13,12 @@ class MountainCar:
     def reset(self):
         self.x = np.random.uniform(-0.6, -0.4)
         self.v = 0.0
-        return self
 
     def set(self, state: [float, float]):
         self.x = state[0]
         self.v = state[1]
-        return self
 
-    def update(self, action) -> [float, float]:
+    def update(self, action: int) -> (int, [float, float]):
         self.v += 0.001 * action - 0.0025 * np.cos(np.pi * self.x)
         self.x += self.v
 
@@ -28,21 +26,22 @@ class MountainCar:
             self.x = self.min_maxes[0]
             self.v = 0
 
-        if self.x > self.min_maxes[1]:
-            self.x = self.min_maxes[1]
-
         if self.v < self.min_maxes[2]:
             self.v = self.min_maxes[2]
 
         if self.v > self.min_maxes[3]:
             self.v = self.min_maxes[3]
 
-        return [self.x, self.v]
+        if self.x > self.min_maxes[1]:
+            self.x = self.min_maxes[1]
+            return 0, [self.x, 0]
 
-    def isTerminal(self, position: float = None) -> bool:
-        if position is None:
+        return -1, [self.x, self.v]
+
+    def isTerminal(self, state: list[float, float] = None) -> bool:
+        if state is None:
             return self.x == self.min_maxes[1]
-        return position == self.min_maxes[1]
+        return state[0] == self.min_maxes[1]
 
     def getState(self) -> [float, float]:
         return [self.x, self.v]
