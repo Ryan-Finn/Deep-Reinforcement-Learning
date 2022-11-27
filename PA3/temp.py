@@ -19,10 +19,10 @@ class SarsaLambda:
         # set up basis function
         all_consts = list(prod(range(order + 1), repeat=self.dims))
         all_consts.remove(all_consts[0])
-        self.basis = [lambda _: 1]
+        self.basis = [lambda _: 0]
         for c in all_consts:
             c = np.array(c)
-            self.basis.append(lambda s: np.cos(np.pi * np.dot(s, c) / 2))
+            self.basis.append(lambda s: np.cos(np.pi * np.dot(s, c)))
             self.alphas.append(alpha / np.linalg.norm(c))
         self.alphas = np.array(self.alphas)
 
@@ -46,7 +46,7 @@ class SarsaLambda:
             return 0.0
 
         phi = np.array([feature(self.normalize(S)) for feature in self.basis])
-        return float(np.dot(self.weights[:, self.model.actions.index(A)], phi))
+        return float(np.dot(self.weights[:, 0], phi))
 
     def playEpisode(self) -> int:
         self.model.reset()
@@ -57,7 +57,7 @@ class SarsaLambda:
         Q_old = 0
 
         for steps in range(self.max_steps):
-            A_ind = self.model.actions.index(A)
+            A_ind = 0  # self.model.actions.index(A)
             R, S_p = self.model.update(A)
             A_p = self.getAction(S_p)
             Q = self.value(S, A)

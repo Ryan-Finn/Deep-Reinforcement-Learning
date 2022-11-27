@@ -1,86 +1,119 @@
-from itertools import product as prod
-
 import numpy as np
+import gym
+
+# change if desired to required environment, ensure you change num_actions,sample given below
+# env = gym.make('Acrobot-v1')
+env = gym.make('MountainCar-v0')
+# env=gym.make('CartPole-v1') #change num_actions to 2
+
+num_actions = 3  # number of available actions
+num_episodes = 300
+fourier_order = 3  # change order as desired.
+basealpha = 0.001  # change required base alpha
+observations_dim = np.shape(env.observation_space.high)[0]  # the observations in the environment
+
+w = np.zeros([pow(fourier_order + 1, observations_dim),
+              num_actions])  # weight matrix, with number of columns equal number of actions
+stepcount = np.zeros([num_episodes, 1])
+gamma = 1  # discount factor
+zeta = 0.9  # bootstrapping parameter, note that lambda is keyword in python
+epsilon = 0  # set exploration parameter as desired
+visualize_after_steps = 290  # start the display
 
 
-class SarsaLambda:
-    def __init__(self, model, lam: float, alpha: float, gamma: float, epsilon: float, order: int, max_steps: int = 1000):
-        self.model = model
-        self.lam = lam
-        self.alpha = alpha
-        self.gamma = gamma
-        self.epsilon = epsilon
-        self.alphas = [alpha]
-        self.order = order
-        self.dims = len(model.getState())
-        self.max_steps = max_steps
-        self.num_bases = (order + 1) ** self.dims
+def createalphas(basealpha, fourier_order, observations_dim):  # different alpha for different order terms of fourier
+    temp = tuple([np.arange(fourier_order + 1)] * observations_dim)
+    b = np.array(np.meshgrid(*temp)).T.reshape(-1, observations_dim)
+    c = np.linalg.norm(b, axis=1)
+    d = basealpha / c
+    d[0] = basealpha
+    d = np.expand_dims(d, axis=1)
+    alphavec = np.tile(d, num_actions)
+    alphavec = np.reshape(alphavec, (-1, num_actions))
+    return alphavec
 
-        # set up basis function
-        all_consts = list(prod(range(order + 1), repeat=self.dims))
-        self.basis = [lambda s: np.cos(np.pi * np.dot(s, np.array(all_consts[0])))]
-        all_consts.remove(all_consts[0])
 
-        for c in all_consts:
-            c = np.array(c)
-            self.basis.append(lambda s: np.cos(np.pi * np.dot(s, c)))
-            self.alphas.append(alpha / np.linalg.norm(c))
-        self.alphas = np.array(self.alphas)
+def normalize(state):
+    normstate = np.empty(np.shape(state))
+    val = env.observation_space.low
+    val1 = env.observation_space.high
 
-        self.weights = np.zeros((self.num_bases, len(model.actions)))
+    for i in range(np.shape(state)[0]):
+        normstate[i] = translate(state[i], val[i], val1[i], 0, 1)
+    return normstate
 
-    def normalize(self, s):
-        S = s.copy()
-        for i in range(len(S)):
-            S[i] = (S[i] - self.model.min_maxes[i * 2]) / \
-                   (self.model.min_maxes[i * 2 + 1] - self.model.min_maxes[i * 2])
-        return np.array(S)
 
-    def getAction(self, phi) -> int:
-        if np.random.uniform() <= self.epsilon:
-            return np.random.choice(self.model.actions)
-        return self.model.actions[np.argmax([self.value(phi, A) for A in self.model.actions])]
+def computeFourierBasis(state, fourier_order, observations_dim):
+    normstate = normalize(state)
+    temp = tuple([np.arange(fourier_order + 1)] * observations_dim)
+    b = np.array(np.meshgrid(*temp)).T.reshape(-1, observations_dim)
+    return np.cos(np.pi * np.dot(b, normstate))
 
-    # estimate the value of given state and action
-    def value(self, phi, A: int) -> float:
-        return float(np.dot(self.weights[:, self.model.actions.index(A)], phi))
 
-    def playEpisode(self) -> int:
-        self.model.reset()
-        S = self.model.getState()
-        phi = np.array([feature(self.normalize(S)) for feature in self.basis])
-        A = self.getAction(phi)
-        z = np.zeros((self.num_bases, len(self.model.actions)))
+def computevalue(w, action, state):  # compute value of taking some state in some state
+    return np.dot(w[:, action], computeFourierBasis(state, fourier_order, observations_dim))
 
-        for steps in range(self.max_steps):
-            R, S_p = self.model.update(A)
-            phi_p = np.array([feature(self.normalize(S_p)) for feature in self.basis])
-            A_p = self.getAction(phi_p)
-            A_ind = self.model.actions.index(A_p)
-            Q = np.dot(self.weights[:, self.model.actions.index(A)], phi)
-            Q_p = np.dot(self.weights[:, A_ind], phi_p)
 
-            delta = R - Q
-            if not self.model.isTerminal():
-                delta += self.gamma * Q_p
+def updateweights(w, e, alphavec, delta):
+    w = w + delta * alphavec * e
+    return w
 
-            z[:, A_ind] = phi
 
-            for a in range(len(self.model.actions)):
-                self.weights[:, a] += delta * np.multiply(self.alphas, z[:, a])
+def epsilon_greedy(state, epsilon, w):  # pass a state where agent is eps-greedy, weight matrix w
 
-            z *= self.gamma * self.lam
+    temp = np.zeros([1, num_actions])
+    for k in range(num_actions):
+        temp[0, k] = computevalue(w, k, state)
+    c = np.argmax(temp)
 
-            phi = phi_p
-            A = A_p
+    if np.random.rand(1) < epsilon:
+        c = env.action_space.sample()  # epsilon greedy
+    return c
 
-            if self.model.isTerminal():
-                return steps + 1
 
-        return self.max_steps
+def translate(value, leftMin, leftMax, rightMin, rightMax):
+    leftrange = leftMax - leftMin
+    rightrange = rightMax - rightMin
+    # Convert the left range into a 0-1 range (float)
+    valueScaled = float(value - leftMin) / leftrange
+    # Convert the 0-1 range into a value in the right range.
+    return rightMin + (valueScaled * rightrange)
 
-    # get # of steps to reach the goal under current state value function
-    def cost_to_go(self) -> float:
-        S = self.model.getState()
-        phi = np.array([feature(self.normalize(S)) for feature in self.basis])
-        return -max([self.value(phi, A) for A in self.model.actions])
+
+alphavec = createalphas(basealpha, fourier_order, observations_dim)
+# env.monitor.start('/tmp/acrobot-experiment-1',force='True')
+for i in range(int(num_episodes)):
+    env.reset()
+    curstate = env.observation_space.sample()
+    e = np.zeros(np.shape(w))
+    curaction = epsilon_greedy(curstate, epsilon, w)  # epsilon greedy selection
+    steps = 0
+    while steps < 1000:
+        steps += 1
+        # print(normalize(curstate))
+        if i > visualize_after_steps:
+            env.render()
+        stepcount[i, 0] = stepcount[i, 0] + 1
+        e[:, curaction] = e[:, curaction] + computeFourierBasis(curstate, fourier_order,
+                                                                observations_dim)  # accumulating traces
+        nextstate, reward, done, info = env.step(curaction)
+        delta = reward - computevalue(w, curaction, curstate)  # The TD Error
+
+        if done:
+            print("Episode %d finished after %d timesteps" % (i, stepcount[i, 0]))
+            w = updateweights(w, e, alphavec, delta)
+            break
+
+        nextaction = epsilon_greedy(nextstate, epsilon, w)
+        # print(nextaction)
+        delta = delta + gamma * computevalue(w, nextaction, nextstate)
+        w = updateweights(w, e, alphavec, delta)  # update the weight vector
+        e = e * gamma * zeta  # trace decay parameter zeta
+        curstate = nextstate
+        curaction = nextaction
+
+        # if stepcount[i]>1000:
+        # print('failed')
+        # break
+
+env.monitor.close()
