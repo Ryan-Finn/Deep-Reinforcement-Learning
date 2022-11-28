@@ -1,5 +1,4 @@
 from itertools import product as prod
-
 import numpy as np
 
 
@@ -20,10 +19,10 @@ class SarsaLambda:
         all_consts = list(prod(range(order + 1), repeat=self.dims))
         all_consts.remove(all_consts[0])
         self.basis = [lambda _: 1]
-        for c in all_consts:
-            c = np.array(c)
-            self.basis.append(lambda s: np.cos(np.pi * np.dot(s, c)))
-            self.alphas.append(alpha / np.linalg.norm(c))
+        for const in all_consts:
+            const = np.array(const)
+            self.basis.append(lambda s, c=const: np.cos(np.pi * np.dot(s, c)))
+            self.alphas.append(alpha / np.linalg.norm(const))
         self.alphas = np.array([self.alphas] * len(model.actions)).T
 
         self.weights = np.zeros((self.num_bases, len(model.actions)))
@@ -38,15 +37,15 @@ class SarsaLambda:
     def getAction(self, S) -> int:
         if np.random.uniform() <= self.epsilon:
             return np.random.choice(self.model.actions)
-        return self.model.actions[np.argmax([self.value(S, A) for A in self.model.actions])]
+        return int(np.argmax([self.value(S, A) for A in range(len(self.model.actions))]))
 
     # estimate the value of given state and action
     def value(self, S, A: int) -> float:
-        # if self.model.isTerminal(S):
-        #     return 0.0
+        if self.model.isTerminal(S):
+            return 0.0
 
         phi = np.array([feature(self.normalize(S)) for feature in self.basis])
-        return float(np.dot(self.weights[:, self.model.actions.index(A)], phi))
+        return float(np.dot(self.weights[:, A], phi))
 
     def playEpisode(self) -> int:
         self.model.reset()
@@ -55,10 +54,9 @@ class SarsaLambda:
         A = self.getAction(S)
 
         for steps in range(self.max_steps):
-            A_ind = self.model.actions.index(A)
             phi = np.array([feature(self.normalize(S)) for feature in self.basis])
 
-            z[:, A_ind] += phi
+            z[:, A] = phi
             R, S_p = self.model.update(A)
             delta = R - self.value(S, A)
 
@@ -78,4 +76,4 @@ class SarsaLambda:
     # get # of steps to reach the goal under current state value function
     def cost_to_go(self) -> float:
         S = self.model.getState()
-        return -max([self.value(S, A) for A in self.model.actions])
+        return -max([self.value(S, A) for A in range(len(self.model.actions))])

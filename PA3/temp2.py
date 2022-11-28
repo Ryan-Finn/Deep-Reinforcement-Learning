@@ -7,13 +7,14 @@ env = gym.make('MountainCar-v0')
 # env=gym.make('CartPole-v1') #change num_actions to 2
 
 num_actions = 3  # number of available actions
-num_episodes = 1000
+num_episodes = 100
 fourier_order = 3  # change order as desired.
 basealpha = 0.001  # change required base alpha
 observations_dim = np.shape(env.observation_space.high)[0]  # the observations in the environment
 
 w = np.zeros([pow(fourier_order + 1, observations_dim),
               num_actions])  # weight matrix, with number of columns equal number of actions
+
 stepcount = np.zeros([num_episodes, 1])
 gamma = 1  # discount factor
 zeta = 0.9  # bootstrapping parameter, note that lambda is keyword in python
@@ -30,7 +31,6 @@ def createalphas(basealpha, fourier_order, observations_dim):  # different alpha
     d = np.expand_dims(d, axis=1)
     alphavec = np.tile(d, num_actions)
     alphavec = np.reshape(alphavec, (-1, num_actions))
-    print(alphavec)
     return alphavec
 
 
@@ -84,9 +84,10 @@ alphavec = createalphas(basealpha, fourier_order, observations_dim)
 # env.monitor.start('/tmp/acrobot-experiment-1',force='True')
 for i in range(int(num_episodes)):
     env.reset()
-    curstate = env.observation_space.sample()
+    curstate = [-0.5, 0]  # env.observation_space.sample()
     e = np.zeros(np.shape(w))
     curaction = epsilon_greedy(curstate, epsilon, w)  # epsilon greedy selection
+
     steps = 0
     while steps < 1000:
         steps += 1
@@ -96,6 +97,7 @@ for i in range(int(num_episodes)):
         stepcount[i, 0] = stepcount[i, 0] + 1
         e[:, curaction] = e[:, curaction] + computeFourierBasis(curstate, fourier_order,
                                                                 observations_dim)  # accumulating traces
+        print(e)
         nextstate, reward, done, info, _ = env.step(curaction)
         delta = reward - computevalue(w, curaction, curstate)  # The TD Error
 

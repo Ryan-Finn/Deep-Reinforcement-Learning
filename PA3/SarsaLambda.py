@@ -1,69 +1,79 @@
+from itertools import product as prod
 import numpy as np
-
-from Tiles import IHT, tiles
 
 
 class SarsaLambda:
-    # In this example I use the tiling software instead of implementing standard tiling by myself
-    # One important thing is that tiling is only a map from (state, action) to a series of indices
-    # It doesn't matter whether the indices have meaning, only if this map satisfy some property
-    # View the following webpage for more information
-    # http://incompleteideas.net/sutton/tiles/tiles3.html
-    # @maxSize: the maximum # of indices
-    def __init__(self, lam, alpha, model, discount=1, num_of_tilings=8, max_size=2048):
-        self.lam = lam
-        self.alpha = alpha / num_of_tilings
+    def __init__(self, model, lam: float, alpha: float, gamma: float, epsilon: float, order: int, max_steps: int = 1000):
         self.model = model
+        self.lam = lam
+        self.alpha = alpha
+        self.gamma = gamma
+        self.epsilon = epsilon
+        self.alphas = [alpha]
+        self.order = order
+        self.dims = len(model.getState())
+        self.max_steps = max_steps
+        self.num_bases = (order + 1) ** self.dims
 
-        self.discount = discount
-        self.num_of_tilings = num_of_tilings
-        self.max_size = max_size
+        # set up basis function
+        all_consts = list(prod(range(order + 1), repeat=self.dims))
+        all_consts.remove(all_consts[0])
+        self.basis = [lambda _: 1]
+        for const in all_consts:
+            const = np.array(const)
+            self.basis.append(lambda s, c=const: np.cos(np.pi * np.dot(s, c)))
+            self.alphas.append(alpha / np.linalg.norm(const))
+        self.alphas = np.array([self.alphas] * len(model.actions)).T
 
-        # set up bases function
-        self.bases = []
-        for n in range(3 + 1):
-            self.bases.append(lambda s, i=n: np.cos(i * np.pi * s))
+        self.weights = np.zeros((self.num_bases, len(model.actions)))
 
-        self.hash_table = IHT(max_size)
+    def normalize(self, s):
+        S = s.copy()
+        for i in range(len(S)):
+            S[i] = (S[i] - self.model.min_maxes[i * 2]) /\
+                   (self.model.min_maxes[i * 2 + 1] - self.model.min_maxes[i * 2])
+        return np.array(S)
 
-        # weight for each tile
-        self.weights = np.zeros(self.max_size)
-
-        # trace for each tile
-        self.trace = np.zeros(max_size)
-
-        # position and velocity needs scaling to satisfy the tile software
-        self.position_scale = self.num_of_tilings / (model.min_maxes[1] - model.min_maxes[0])
-        self.velocity_scale = self.num_of_tilings / (model.min_maxes[3] - model.min_maxes[2])
-
-    # get indices of active tiles for given state and action
-    def get_active_tiles(self, state, action):
-        # I think positionScale * (position - position_min) would be a good normalization.
-        # However, positionScale * position_min is a constant, so it's ok to ignore it.
-        return tiles(self.hash_table, self.num_of_tilings,
-                     [self.position_scale * state[0], self.velocity_scale * state[1]], [action])
+    def getAction(self, S) -> int:
+        if np.random.uniform() <= self.epsilon:
+            return np.random.choice(self.model.actions)
+        return int(np.argmax([self.value(S, A) for A in range(len(self.model.actions))]))
 
     # estimate the value of given state and action
-    def value(self, action):
-        if self.model.isTerminal():
+    def value(self, S, A: int) -> float:
+        if self.model.isTerminal(S):
             return 0.0
-        return np.sum(self.weights[self.get_active_tiles(self.model.getState(), action)])
 
-    # learn with given state, action and target
-    def learn(self, state, action, target):
-        active_tiles = self.get_active_tiles(state, action)
-        delta = target - np.sum(self.weights[active_tiles])
+        phi = np.array([feature(self.normalize(S)) for feature in self.basis])
+        return float(np.dot(self.weights[:, A], phi))
 
-        # Replacing Trace
-        active = np.in1d(np.arange(len(self.trace)), active_tiles)
-        self.trace[active] = 1
-        self.trace[~active] *= self.lam * self.discount
+    def playEpisode(self) -> int:
+        self.model.reset()
+        S = self.model.getState()
+        z = np.zeros((self.num_bases, len(self.model.actions)))
+        A = self.getAction(S)
 
-        self.weights += self.alpha * delta * self.trace
+        for steps in range(self.max_steps):
+            phi = np.array([feature(self.normalize(S)) for feature in self.basis])
+
+            z[:, A] = phi
+            R, S_p = self.model.update(A)
+            delta = R - self.value(S, A)
+
+            if self.model.isTerminal():
+                self.weights += delta * z * self.alphas
+                return steps + 1
+
+            A_p = self.getAction(S_p)
+            delta += self.gamma * self.value(S_p, A_p)
+            self.weights += delta * z * self.alphas
+            z *= self.gamma * self.lam
+            S = S_p
+            A = A_p
+
+        return self.max_steps
 
     # get # of steps to reach the goal under current state value function
-    def cost_to_go(self):
-        costs = []
-        for action in self.model.actions:
-            costs.append(self.value(action))
-        return -np.max(costs)
+    def cost_to_go(self) -> float:
+        S = self.model.getState()
+        return -max([self.value(S, A) for A in range(len(self.model.actions))])

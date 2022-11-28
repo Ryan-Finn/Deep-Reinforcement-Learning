@@ -7,15 +7,14 @@ import numpy as np
 from tqdm import tqdm
 
 from MountainCar import MountainCar
-# from SarsaLambda import SarsaLambda as sl
-from temp import SarsaLambda as sl
+from SarsaLambda import SarsaLambda as sl
 
 LAMBDA = 0.9
 ALPHA = 0.001
 GAMMA = 1.0
 EPSILON = 0.0
 EPISODES = 100
-RUNS = 1  # max(cpu_count() - 1, 1)
+RUNS = max(cpu_count() - 1, 1)
 MAX_STEPS = 1000
 
 
@@ -82,7 +81,7 @@ def main():
         plt.plot(steps[i], label='Order = %d' % order)
     plt.xlabel('Episodes')
     plt.ylabel('Steps')
-    # plt.yscale('log')
+    plt.yscale('log')
     plt.legend()
     plt.savefig('images/figure_1.png')
     plt.close()

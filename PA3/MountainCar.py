@@ -1,36 +1,29 @@
 import numpy as np
+from gym.envs.classic_control.mountain_car import MountainCarEnv
 
 
-class MountainCar:
-    def __init__(self, position: float = None, velocity: float = 0.0):
-        if position is None:
-            position = np.random.uniform(-0.6, -0.4)
-        self.x = position
-        self.v = velocity
-        self.actions = [-1, 0, 1]
-        self.min_maxes = [-1.2, 0.5, -0.07, 0.07]  # [Min position, max position, min velocity, max velocity]
-
-    def reset(self):
-        self.x = np.random.uniform(-0.6, -0.4)
-        self.v = 0.0
+class MountainCar(MountainCarEnv):
+    # def reset():
+    #     self.state, _ = self.env.reset()
 
     def set(self, state: [float, float]):
-        self.x = state[0]
-        self.v = state[1]
+        self.state, _ = self.env.reset(options={'low': state[0], 'high': state[0]})
 
     def update(self, action: int) -> (int, [float, float]):
-        self.v += 0.001 * action - 0.0025 * np.cos(3 * self.x)
-        self.x += self.v
-
-        if self.x < self.min_maxes[0]:
-            self.x = self.min_maxes[0]
-            self.v = 0
+        self.env.step(action)
+        self.v += 0.001 * (action - 1) - 0.0025 * np.cos(3 * self.x)
 
         if self.v < self.min_maxes[2]:
             self.v = self.min_maxes[2]
 
         if self.v > self.min_maxes[3]:
             self.v = self.min_maxes[3]
+
+        self.x += self.v
+
+        if self.x < self.min_maxes[0]:
+            self.x = self.min_maxes[0]
+            self.v = 0
 
         if self.x > self.min_maxes[1]:
             self.x = self.min_maxes[1]
