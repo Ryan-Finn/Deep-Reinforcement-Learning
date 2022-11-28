@@ -1,11 +1,7 @@
-#######################################################################
-# Copyright (C)                                                       #
-# 2017-2018 Shangtong Zhang(zhangshangtong.cpp@gmail.com)             #
-# Permission given to modify the code as long as you keep this        #
-# declaration at the top                                              #
-#######################################################################
+import contextlib
+from os import cpu_count
 
-import matplotlib
+import joblib
 import matplotlib.pyplot as plt
 import numpy as np
 from tqdm import tqdm
@@ -13,118 +9,100 @@ from tqdm import tqdm
 from MountainCar import MountainCar
 from SarsaLambda import SarsaLambda as sl
 
-matplotlib.use('Agg')
-
-DISCOUNT = 1.0
-EPSILON = 0
-MAX_STEPS = 1000
-
-
-# get action at @position and @velocity based on epsilon greedy policy and @valueFunction
-def get_action(mountain_car, evaluator):
-    if np.random.binomial(1, EPSILON) == 1:
-        return np.random.choice(mountain_car.actions)
-    values = []
-    for action in mountain_car.actions:
-        values.append(evaluator.value(mountain_car, action))
-    return np.argmax(values) - 1
+LAMBDA = 0.9
+ALPHA = 0.001
+GAMMA = 1.0
+EPSILON = 0.0
+EPISODES = 1000
+RUNS = 1  # max(cpu_count() - 1, 1)
+MAX_STEPS = 2000
 
 
-# play Mountain Car for one episode based on given method @evaluator
-# @return: total steps in this episode
-def play(mountain_car, evaluator):
-    mountain_car.reset()
-    state = mountain_car.getState()
-    action = get_action(mountain_car, evaluator)
-    steps = 1
+@contextlib.contextmanager
+def tqdm_joblib(tqdm_object):
+    """Context manager to patch joblib to report into tqdm progress bar given as argument"""
 
-    while steps < MAX_STEPS:
-        if mountain_car.isTerminal():
-            return steps
+    class TqdmBatchCompletionCallback(joblib.parallel.BatchCompletionCallBack):
+        def __call__(self, *args, **kwargs):
+            tqdm_object.update(n=self.batch_size)
+            return super().__call__(*args, **kwargs)
 
-        next_state = mountain_car.update(action)
-        next_action = get_action(mountain_car, evaluator)
-
-        target = -1 + DISCOUNT * evaluator.value(mountain_car, next_action)
-        evaluator.learn(state, action, target)
-
-        state = next_state
-        action = next_action
-        steps += 1
-
-    return steps
+    old_batch_callback = joblib.parallel.BatchCompletionCallBack
+    joblib.parallel.BatchCompletionCallBack = TqdmBatchCompletionCallback
+    try:
+        yield tqdm_object
+    finally:
+        joblib.parallel.BatchCompletionCallBack = old_batch_callback
+        tqdm_object.close()
 
 
-# figure 12.10, effect of the lambda and alpha on early performance of Sarsa(lambda)
-def figure_12_10():
-    mountain_car = MountainCar()
-    sarsa_lam = sl(mountain_car.actions, mountain_car.min_maxes, DISCOUNT)
+def learn(order, grid_size, run):
+    x, y, z = [], [], []
+    model = MountainCar()
+    steps = np.zeros(EPISODES)
+    sarsa_lam = sl(model, LAMBDA, ALPHA, GAMMA, EPSILON, order, MAX_STEPS)
+    positions = np.linspace(model.low[0], model.high[0], grid_size)
+    velocities = np.linspace(model.low[1], model.high[1], grid_size)
 
-    runs = 5
-    episodes = 50
-    alphas = np.arange(1, 8) / 4.0
-    lam = 0.9
+    for episode in tqdm(range(EPISODES), desc='O(%d) Run: %d' % (order, (run + 1)), leave=False):
+        steps[episode] = sarsa_lam.learnEpisode()
 
-    steps = np.zeros((len(alphas), runs, episodes))
-    with tqdm(total=runs * episodes * len(alphas), ncols=100) as progress:
-        for alphaInd, alpha in enumerate(alphas):
-            for run in range(runs):
-                evaluator = sarsa_lam.setEvaluator(alpha, lam)
-                for ep in range(episodes):
-                    steps[alphaInd, run, ep] = play(mountain_car, evaluator)
-                    progress.update()
+    for position in positions:
+        for velocity in velocities:
+            model.set([position, velocity])
+            x.append(position)
+            y.append(velocity)
+            z.append(sarsa_lam.cost_to_go())
 
-    # average over episodes
-    steps = np.mean(steps, axis=2)
+    return steps, x, y, z
 
-    # average over runs
-    steps = np.mean(steps, axis=1)
 
-    plt.plot(alphas, steps[:], label='lambda = %s' % (str(lam)))
-    plt.xlabel('alpha * # of tilings (8)')
-    plt.ylabel('averaged steps per episode')
+def main():
+    grid_size = 40
+    orders = [3]  # , 5, 7]
+    steps = np.zeros((len(orders), EPISODES))
+    x = np.zeros((len(orders), grid_size ** 2))
+    y = np.zeros((len(orders), grid_size ** 2))
+    z = np.zeros((len(orders), grid_size ** 2))
+
+    with joblib.Parallel(n_jobs=RUNS) as parallel:
+        with tqdm_joblib(tqdm(desc="Fourier SARSA(Lambda)", total=len(orders) * RUNS, ncols=100)):
+            for i in range(len(orders)):
+                results = parallel(joblib.delayed(learn)(orders[i], grid_size, run) for run in range(RUNS))
+                steps[i, :] = np.sum([r[0] for r in results], axis=0) / RUNS
+                x[i, :] = np.sum([r[1] for r in results], axis=0) / RUNS
+                y[i, :] = np.sum([r[2] for r in results], axis=0) / RUNS
+                z[i, :] = np.sum([r[3] for r in results], axis=0) / RUNS
+
+    # Figure 1
+    for i, order in enumerate(orders):
+        plt.plot(steps[i], label='Order = %d' % order)
+    plt.xlabel('Episodes')
+    plt.ylabel('Steps')
+    # plt.yscale('log')
     plt.legend()
-
-    plt.savefig('images/figure_12_10.png')
+    plt.savefig('images/figure_1b.png')
     plt.close()
 
+    # Figures 2 - 4
+    for i, order in enumerate(orders):
+        fig = plt.figure(figsize=(10, 10))
+        ax = fig.add_subplot(projection='3d')
+        ax.scatter(x[i], y[i], z[i])
+        ax.set_xlabel('Position')
+        ax.set_ylabel('Velocity')
+        ax.set_zlabel('Cost to go')
+        ax.set_title('O(%d)\nEpisode %d' % (order, EPISODES))
+        plt.savefig('images/figure_%d.png' % (i + 2))
+        plt.close()
 
-# figure 12.11, summary comparison of Sarsa(lambda) algorithms
-# I use 8 tilings rather than 10 tilings
-def figure_12_11():
-    mountain_car = MountainCar()
-    sarsa_lam = sl(mountain_car.actions, mountain_car.min_maxes, DISCOUNT)
 
-    runs = 5
-    episodes = 50
-    alphas = np.arange(1, 8) / 4.0
-    lam = 0.9
-
-    rewards = np.zeros((len(alphas), runs, episodes))
-
-    with tqdm(total=runs * episodes * len(alphas), ncols=100) as progress:
-        for alphaInd, alpha in enumerate(alphas):
-            for run in range(runs):
-                for ep in range(episodes):
-                    evaluator = sarsa_lam.setEvaluator(alpha, lam)
-                    steps = play(mountain_car, evaluator)
-                    rewards[alphaInd, run, ep] = -steps
-                    progress.update()
-
-    # average over episodes
-    rewards = np.mean(rewards, axis=2)
-
-    # average over runs
-    rewards = np.mean(rewards, axis=1)
-
-    plt.plot(alphas, rewards)
-    plt.xlabel('alpha * # of tilings (8)')
-    plt.ylabel('averaged rewards per episode')
-
-    plt.savefig('images/figure_12_11.png')
-    plt.close()
+def animate():
+    sarsa_lam = sl(MountainCar(), LAMBDA, ALPHA, GAMMA, EPSILON, 3, MAX_STEPS, animate=True)
+    for _ in tqdm(range(EPISODES), ncols=100):
+        sarsa_lam.learnEpisode()
 
 
 if __name__ == '__main__':
-    figure_12_10()
-    figure_12_11()
+    main()
+    # animate()
