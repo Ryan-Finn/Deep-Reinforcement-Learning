@@ -11,7 +11,7 @@ class SarsaLambda:
         self.epsilon = epsilon
         self.alphas = [alpha]
         self.order = order
-        self.dims = len(model.getState())
+        self.dims = len(model.observation_space)
         self.max_steps = max_steps
         self.num_bases = (order + 1) ** self.dims
 
@@ -23,16 +23,9 @@ class SarsaLambda:
             const = np.array(const)
             self.basis.append(lambda s, c=const: np.cos(np.pi * np.dot(s, c)))
             self.alphas.append(alpha / np.linalg.norm(const))
-        self.alphas = np.array([self.alphas] * len(model.actions)).T
+        self.alphas = np.array([self.alphas] * len(model.action_space)).T
 
-        self.weights = np.zeros((self.num_bases, len(model.actions)))
-
-    def normalize(self, s):
-        S = s.copy()
-        for i in range(len(S)):
-            S[i] = (S[i] - self.model.min_maxes[i * 2]) /\
-                   (self.model.min_maxes[i * 2 + 1] - self.model.min_maxes[i * 2])
-        return np.array(S)
+        self.weights = np.zeros((self.num_bases, len(model.action_space)))
 
     def getAction(self, S) -> int:
         if np.random.uniform() <= self.epsilon:
@@ -44,17 +37,17 @@ class SarsaLambda:
         if self.model.isTerminal(S):
             return 0.0
 
-        phi = np.array([feature(self.normalize(S)) for feature in self.basis])
+        phi = np.array([feature(self.model.normalize(S)) for feature in self.basis])
         return float(np.dot(self.weights[:, A], phi))
 
-    def playEpisode(self) -> int:
+    def learnEpisode(self) -> int:
         self.model.reset()
         S = self.model.getState()
         z = np.zeros((self.num_bases, len(self.model.actions)))
         A = self.getAction(S)
 
         for steps in range(self.max_steps):
-            phi = np.array([feature(self.normalize(S)) for feature in self.basis])
+            phi = np.array([feature(self.model.normalize(S)) for feature in self.basis])
 
             z[:, A] = phi
             R, S_p = self.model.update(A)
@@ -69,6 +62,26 @@ class SarsaLambda:
             self.weights += delta * z * self.alphas
             z *= self.gamma * self.lam
             S = S_p
+            A = A_p
+
+        return self.max_steps
+
+    def animateEpisode(self, weights=None):
+        self.weights = weights
+
+        self.model.reset()
+        self.model.render()
+        S = self.model.getState()
+        A = self.getAction(S)
+
+        for steps in range(self.max_steps):
+            R, S_p = self.model.update(A)
+            self.model.render()
+
+            if self.model.isTerminal():
+                return steps + 1
+
+            A_p = self.getAction(S_p)
             A = A_p
 
         return self.max_steps

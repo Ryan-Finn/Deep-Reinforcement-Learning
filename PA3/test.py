@@ -37,7 +37,7 @@ def tqdm_joblib(tqdm_object):
 
 
 def learn(order, grid_size, run):
-    x, y, z = [], [], []
+    x, y, z, w = [], [], [], None
     model = MountainCar()
     steps = np.zeros(EPISODES)
     sarsa_lam = sl(model, LAMBDA, ALPHA, GAMMA, EPSILON, order, MAX_STEPS)
@@ -46,8 +46,9 @@ def learn(order, grid_size, run):
 
     with tqdm(total=EPISODES, desc='Run: %d' % (run + 1), leave=False) as progress:
         for episode in range(EPISODES):
-            steps[episode] = sarsa_lam.playEpisode()
+            steps[episode] = sarsa_lam.learnEpisode()
             progress.update()
+        w = sarsa_lam.weights
 
     for position in positions:
         for velocity in velocities:
@@ -56,7 +57,7 @@ def learn(order, grid_size, run):
             y.append(velocity)
             z.append(sarsa_lam.cost_to_go())
 
-    return steps, x, y, z
+    return steps, x, y, z, w
 
 
 def main():
@@ -66,6 +67,7 @@ def main():
     x = np.zeros((len(orders), grid_size ** 2))
     y = np.zeros((len(orders), grid_size ** 2))
     z = np.zeros((len(orders), grid_size ** 2))
+    w = sl(MountainCar(), LAMBDA, ALPHA, GAMMA, EPSILON, 3, MAX_STEPS).weights
 
     with joblib.Parallel(n_jobs=RUNS) as parallel:
         with tqdm_joblib(tqdm(desc="Fourier SARSA(Lambda)", total=len(orders) * RUNS, ncols=100)):
@@ -75,6 +77,7 @@ def main():
                 x[i, :] = np.sum([r[1] for r in results], axis=0) / RUNS
                 y[i, :] = np.sum([r[2] for r in results], axis=0) / RUNS
                 z[i, :] = np.sum([r[3] for r in results], axis=0) / RUNS
+                w[i, :] = np.sum([r[4] for r in results], axis=0) / RUNS
 
     # Figure 1
     for i, order in enumerate(orders):

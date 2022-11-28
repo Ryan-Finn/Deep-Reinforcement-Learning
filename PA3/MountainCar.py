@@ -3,38 +3,28 @@ from gym.envs.classic_control.mountain_car import MountainCarEnv
 
 
 class MountainCar(MountainCarEnv):
-    # def reset():
-    #     self.state, _ = self.env.reset()
-
     def set(self, state: [float, float]):
-        self.state, _ = self.env.reset(options={'low': state[0], 'high': state[0]})
+        super().state = np.array(state)
+        if super().render_mode == "human":
+            self.render()
 
-    def update(self, action: int) -> (int, [float, float]):
-        self.env.step(action)
-        self.v += 0.001 * (action - 1) - 0.0025 * np.cos(3 * self.x)
+    def step(self, action: int) -> (int, np.ndarray):
+        state, reward, terminated, truncated, _ = super().step(action)
 
-        if self.v < self.min_maxes[2]:
-            self.v = self.min_maxes[2]
-
-        if self.v > self.min_maxes[3]:
-            self.v = self.min_maxes[3]
-
-        self.x += self.v
-
-        if self.x < self.min_maxes[0]:
-            self.x = self.min_maxes[0]
-            self.v = 0
-
-        if self.x > self.min_maxes[1]:
-            self.x = self.min_maxes[1]
-            return 0, [self.x, 0]
-
-        return -1, [self.x, self.v]
+        if terminated or truncated:
+            return 0, state
+        return reward, state
 
     def isTerminal(self, state: list[float, float] = None) -> bool:
         if state is None:
-            return self.x == self.min_maxes[1]
-        return state[0] == self.min_maxes[1]
+            return bool(super().state[0] >= super().goal_position and super().state[1] >= super().goal_velocity)
+        return bool(state[0] >= super().goal_position and state[1] >= super().goal_velocity)
 
-    def getState(self) -> [float, float]:
-        return [self.x, self.v]
+    def getState(self) -> np.ndarray:
+        return super().state
+
+    def normalize(self, state):
+        S = state.copy()
+        for i in range(len(S)):
+            S[i] = (S[i] - super().low[i]) / (super().high[i] - super().low[i])
+        return S
