@@ -7,7 +7,7 @@ env = gym.make('MountainCar-v0')
 # env=gym.make('CartPole-v1') #change num_actions to 2
 
 num_actions = 3  # number of available actions
-num_episodes = 300
+num_episodes = 1000
 fourier_order = 3  # change order as desired.
 basealpha = 0.001  # change required base alpha
 observations_dim = np.shape(env.observation_space.high)[0]  # the observations in the environment
@@ -18,7 +18,7 @@ stepcount = np.zeros([num_episodes, 1])
 gamma = 1  # discount factor
 zeta = 0.9  # bootstrapping parameter, note that lambda is keyword in python
 epsilon = 0  # set exploration parameter as desired
-visualize_after_steps = 290  # start the display
+visualize_after_steps = num_episodes - 10  # start the display
 
 
 def createalphas(basealpha, fourier_order, observations_dim):  # different alpha for different order terms of fourier
@@ -96,7 +96,7 @@ for i in range(int(num_episodes)):
         stepcount[i, 0] = stepcount[i, 0] + 1
         e[:, curaction] = e[:, curaction] + computeFourierBasis(curstate, fourier_order,
                                                                 observations_dim)  # accumulating traces
-        nextstate, reward, done, info = env.step(curaction)
+        nextstate, reward, done, info, _ = env.step(curaction)
         delta = reward - computevalue(w, curaction, curstate)  # The TD Error
 
         if done:
