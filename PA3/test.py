@@ -8,13 +8,13 @@ from tqdm import tqdm
 
 from MountainCar import MountainCar
 # from SarsaLambda import SarsaLambda as sl
-from temp2 import SarsaLambda as sl
+from temp import SarsaLambda as sl
 
 LAMBDA = 0.9
 ALPHA = 0.001
 GAMMA = 1.0
 EPSILON = 0.0
-EPISODES = 50
+EPISODES = 100
 RUNS = 1  # max(cpu_count() - 1, 1)
 MAX_STEPS = 1000
 
@@ -72,8 +72,6 @@ def main():
         with tqdm_joblib(tqdm(desc="Fourier SARSA(Lambda)", total=len(orders) * RUNS, ncols=100)):
             for i in range(len(orders)):
                 results = parallel(joblib.delayed(learn)(orders[i], grid_size, run) for run in range(RUNS))
-                print(results)
-                print([r[3] for r in results])
                 steps[i, :] = np.sum([r[0] for r in results], axis=0) / RUNS
                 x[i, :] = np.sum([r[1] for r in results], axis=0) / RUNS
                 y[i, :] = np.sum([r[2] for r in results], axis=0) / RUNS

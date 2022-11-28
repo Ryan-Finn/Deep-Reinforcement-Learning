@@ -19,7 +19,7 @@ class MountainCar:
         self.v = state[1]
 
     def update(self, action: int) -> (int, [float, float]):
-        self.v += 0.001 * action - 0.0025 * np.cos(np.pi * self.x)
+        self.v += 0.001 * action - 0.0025 * np.cos(3 * self.x)
         self.x += self.v
 
         if self.x < self.min_maxes[0]:

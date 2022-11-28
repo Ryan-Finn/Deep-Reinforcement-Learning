@@ -30,6 +30,7 @@ def createalphas(basealpha, fourier_order, observations_dim):  # different alpha
     d = np.expand_dims(d, axis=1)
     alphavec = np.tile(d, num_actions)
     alphavec = np.reshape(alphavec, (-1, num_actions))
+    print(alphavec)
     return alphavec
 
 
@@ -60,7 +61,6 @@ def updateweights(w, e, alphavec, delta):
 
 
 def epsilon_greedy(state, epsilon, w):  # pass a state where agent is eps-greedy, weight matrix w
-
     temp = np.zeros([1, num_actions])
     for k in range(num_actions):
         temp[0, k] = computevalue(w, k, state)
