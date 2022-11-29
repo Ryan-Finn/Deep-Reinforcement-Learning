@@ -38,7 +38,7 @@ class MountainCar(MountainCarEnv):
         self.state = (position, velocity)
 
         if self.isTerminal():
-            return np.array(self.state, dtype=np.float32), 0.0, True
+            return np.array(self.state, dtype=np.float32), -1.0, True
         return np.array(self.state, dtype=np.float32), -1.0, False
 
     def animate(self, episode: int, step: int, max_steps: int):
@@ -49,7 +49,7 @@ class MountainCar(MountainCarEnv):
     def isTerminal(self, state: (float, float) = None) -> bool:
         if state is None:
             state = self.state
-        return state[0] >= self.goal_position and state[1] >= self.goal_velocity
+        return state[0] >= self.goal_position  # and state[1] >= self.goal_velocity
 
     def getState(self) -> np.ndarray:
         return np.array(self.state)
