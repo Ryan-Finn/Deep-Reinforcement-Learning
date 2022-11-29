@@ -14,8 +14,9 @@ ALPHA = 0.005
 GAMMA = 1.0
 EPSILON = 0.0
 EPISODES = 1000
-RUNS = max(cpu_count() - 1, 1)
-MAX_STEPS = 1000
+RUNS = 20
+MAX_STEPS = 200
+CPUS = max(cpu_count() - 1, 1)
 
 
 @contextlib.contextmanager
@@ -65,7 +66,7 @@ def main():
     y = np.zeros((len(orders), grid_size ** 2))
     z = np.zeros((len(orders), grid_size ** 2))
 
-    with joblib.Parallel(n_jobs=RUNS) as parallel:
+    with joblib.Parallel(n_jobs=CPUS) as parallel:
         with tqdm_joblib(tqdm(desc="Learning Fourier SARSA(Lambda)", total=len(orders) * RUNS, ncols=100)):
             for i in range(len(orders)):
                 results = parallel(joblib.delayed(learn)(orders[i], grid_size, run) for run in range(RUNS))

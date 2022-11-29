@@ -13,6 +13,7 @@ from pygame import display
 class MountainCar(MountainCarEnv):
     def __init__(self):
         super().__init__(render_mode="human")
+        self.state = None
 
     def set(self, state: (float, float)):
         self.state = state
@@ -38,7 +39,7 @@ class MountainCar(MountainCarEnv):
         self.state = (position, velocity)
 
         if self.isTerminal():
-            return np.array(self.state, dtype=np.float32), -1.0, True
+            return np.array(self.state, dtype=np.float32), 0.0, True
         return np.array(self.state, dtype=np.float32), -1.0, False
 
     def animate(self, episode: int, step: int, max_steps: int):
