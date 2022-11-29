@@ -10,12 +10,12 @@ from MountainCar import MountainCar
 from SarsaLambda import SarsaLambda as sl
 
 LAMBDA = 0.9
-ALPHA = 0.001
+ALPHA = 0.005
 GAMMA = 1.0
 EPSILON = 0.0
 EPISODES = 1000
-RUNS = 1  # max(cpu_count() - 1, 1)
-MAX_STEPS = 2000
+RUNS = max(cpu_count() - 1, 1)
+MAX_STEPS = 1000
 
 
 @contextlib.contextmanager
@@ -44,7 +44,7 @@ def learn(order, grid_size, run):
     positions = np.linspace(model.low[0], model.high[0], grid_size)
     velocities = np.linspace(model.low[1], model.high[1], grid_size)
 
-    for episode in tqdm(range(EPISODES), desc='O(%d) Run: %d' % (order, (run + 1)), leave=False):
+    for episode in tqdm(range(EPISODES), desc=f'O({order}) Run: {run + 1}', leave=False):
         steps[episode] = sarsa_lam.learnEpisode()
 
     for position in positions:
@@ -59,14 +59,14 @@ def learn(order, grid_size, run):
 
 def main():
     grid_size = 40
-    orders = [3]  # , 5, 7]
+    orders = [3, 5, 7]
     steps = np.zeros((len(orders), EPISODES))
     x = np.zeros((len(orders), grid_size ** 2))
     y = np.zeros((len(orders), grid_size ** 2))
     z = np.zeros((len(orders), grid_size ** 2))
 
     with joblib.Parallel(n_jobs=RUNS) as parallel:
-        with tqdm_joblib(tqdm(desc="Fourier SARSA(Lambda)", total=len(orders) * RUNS, ncols=100)):
+        with tqdm_joblib(tqdm(desc="Learning Fourier SARSA(Lambda)", total=len(orders) * RUNS, ncols=100)):
             for i in range(len(orders)):
                 results = parallel(joblib.delayed(learn)(orders[i], grid_size, run) for run in range(RUNS))
                 steps[i, :] = np.sum([r[0] for r in results], axis=0) / RUNS
@@ -76,15 +76,24 @@ def main():
 
     # Figure 1
     for i, order in enumerate(orders):
-        plt.plot(steps[i], label='Order = %d' % order)
+        plt.plot(steps[i], label=f'Order = {order}')
     plt.xlabel('Episodes')
     plt.ylabel('Steps')
-    # plt.yscale('log')
     plt.legend()
-    plt.savefig('images/figure_1b.png')
+    plt.savefig('images/figure_1.png')
     plt.close()
 
-    # Figures 2 - 4
+    # Figure 2
+    for i, order in enumerate(orders):
+        plt.plot(steps[i], label=f'Order = {order}')
+    plt.xlabel('Episodes')
+    plt.ylabel('Steps')
+    plt.yscale('log')
+    plt.legend()
+    plt.savefig('images/figure_2.png')
+    plt.close()
+
+    # Figures 3 - 5
     for i, order in enumerate(orders):
         fig = plt.figure(figsize=(10, 10))
         ax = fig.add_subplot(projection='3d')
@@ -92,17 +101,17 @@ def main():
         ax.set_xlabel('Position')
         ax.set_ylabel('Velocity')
         ax.set_zlabel('Cost to go')
-        ax.set_title('O(%d)\nEpisode %d' % (order, EPISODES))
-        plt.savefig('images/figure_%d.png' % (i + 2))
+        ax.set_title(f'O({order})\nEpisode {EPISODES}')
+        plt.savefig(f'images/figure_{i + 3}.png')
         plt.close()
 
 
 def animate():
-    sarsa_lam = sl(MountainCar(), LAMBDA, ALPHA, GAMMA, EPSILON, 3, MAX_STEPS, animate=True)
-    for _ in tqdm(range(EPISODES), ncols=100):
-        sarsa_lam.learnEpisode()
+    sarsa_lam = sl(MountainCar(), LAMBDA, ALPHA, GAMMA, EPSILON, 3, MAX_STEPS)
+    for episode in tqdm(range(1, EPISODES + 1), desc="Animating Fourier SARSA(Lambda)", ncols=100):
+        sarsa_lam.learnEpisode(episode, animate=episode % 100 == 0 or episode == 1)
 
 
 if __name__ == '__main__':
     main()
-    # animate()
+    animate()

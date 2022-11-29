@@ -1,12 +1,11 @@
 from itertools import product as prod
+
 import numpy as np
 
 
 class SarsaLambda:
     def __init__(self, model, lam: float, alpha: float, gamma: float, epsilon: float, order: int,
-                 max_steps: int = 1000, animate: bool = False):
-        if animate:
-            model.render_mode = 'human'
+                 max_steps: int = 1000):
         self.model = model
         self.lam = lam
         self.alpha = alpha
@@ -25,7 +24,7 @@ class SarsaLambda:
         for i in range(self.num_basis - 1):
             const = np.array(all_consts[i])
             self.basis.append(lambda s, c=const: np.cos(np.pi * np.dot(s, c)))
-            self.alphas.append(alpha / np.linalg.norm(const))  # a_i = a / ||c||
+            self.alphas.append(alpha / np.linalg.norm(const))  # a_i = a / ||c_i||
         self.alphas = np.array([self.alphas] * model.action_space.n).T
 
         self.weights = np.zeros((self.num_basis, model.action_space.n))
@@ -35,7 +34,6 @@ class SarsaLambda:
             return self.model.action_space.sample()
         return int(np.argmax([self.value(S, A) for A in range(self.model.action_space.n)]))
 
-    # estimate the value of given state and action
     def value(self, S, A: int) -> float:
         if self.model.isTerminal(S):
             return 0.0
@@ -43,8 +41,10 @@ class SarsaLambda:
         phi = np.array([feature(self.model.normalize(S)) for feature in self.basis])
         return float(np.dot(self.weights[:, A], phi))
 
-    def learnEpisode(self) -> int:
+    def learnEpisode(self, episode: int = 0, animate: bool = False) -> int:
         self.model.reset()
+        if animate:
+            self.model.animate(episode, 0, self.max_steps)
         S = self.model.getState()
         z = np.zeros((self.num_basis, self.model.action_space.n))
         A = self.getAction(S)
@@ -52,11 +52,13 @@ class SarsaLambda:
         for steps in range(self.max_steps):
             phi = np.array([feature(self.model.normalize(S)) for feature in self.basis])
 
-            z[:, A] = phi
-            R, S_p = self.model.step(A)
+            z[:, A] += phi  # accumulating traces
+            S_p, R, terminated = self.model.step(A)
+            if animate:
+                self.model.animate(episode, steps + 1, self.max_steps)
             delta = R - self.value(S, A)
 
-            if self.model.isTerminal():
+            if terminated:
                 self.weights += delta * z * self.alphas
                 return steps + 1
 
@@ -69,7 +71,6 @@ class SarsaLambda:
 
         return self.max_steps
 
-    # get # of steps to reach the goal under current state value function
     def cost_to_go(self) -> float:
         S = self.model.getState()
         return -max([self.value(S, A) for A in range(self.model.action_space.n)])
