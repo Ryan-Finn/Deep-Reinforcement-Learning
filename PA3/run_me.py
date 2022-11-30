@@ -14,7 +14,7 @@ ALPHA = 0.005
 GAMMA = 1.0
 EPSILON = 0.0
 EPISODES = 1000
-RUNS = 50
+RUNS = 100
 MAX_STEPS = 200
 CPUS = max(cpu_count() - 1, 1)
 
@@ -62,18 +62,25 @@ def main():
     grid_size = 40
     orders = [3, 5, 7]
     steps = np.zeros((len(orders), EPISODES))
-    x = np.zeros((len(orders), grid_size ** 2))
-    y = np.zeros((len(orders), grid_size ** 2))
-    z = np.zeros((len(orders), grid_size ** 2))
 
     with joblib.Parallel(n_jobs=CPUS) as parallel:
         with tqdm_joblib(tqdm(desc="Learning Fourier SARSA(Lambda)", total=len(orders) * RUNS, ncols=100)):
             for i in range(len(orders)):
                 results = parallel(joblib.delayed(learn)(orders[i], grid_size, run) for run in range(RUNS))
                 steps[i, :] = np.sum([r[0] for r in results], axis=0) / RUNS
-                x[i, :] = np.sum([r[1] for r in results], axis=0) / RUNS
-                y[i, :] = np.sum([r[2] for r in results], axis=0) / RUNS
-                z[i, :] = np.sum([r[3] for r in results], axis=0) / RUNS
+                x = np.sum([r[1] for r in results], axis=0) / RUNS
+                y = np.sum([r[2] for r in results], axis=0) / RUNS
+                z = np.sum([r[3] for r in results], axis=0) / RUNS
+
+                fig = plt.figure(figsize=(10, 10))
+                ax = fig.add_subplot(projection='3d')
+                ax.scatter(x, y, z)
+                ax.set_xlabel('Position')
+                ax.set_ylabel('Velocity')
+                ax.set_zlabel('Cost to go')
+                ax.set_title(f'O({orders[i]})\nEpisode {EPISODES}')
+                plt.savefig(f'images/figure_{i + 3}.png')
+                plt.close()
 
     # Figure 1
     for i, order in enumerate(orders):
@@ -89,22 +96,11 @@ def main():
         plt.plot(steps[i], label=f'Order = {order}')
     plt.xlabel('Episodes')
     plt.ylabel('Steps')
-    plt.yscale('log')
+    plt.xscale('log')
+    # plt.yscale('log')
     plt.legend()
     plt.savefig('images/figure_2.png')
     plt.close()
-
-    # Figures 3 - 5
-    for i, order in enumerate(orders):
-        fig = plt.figure(figsize=(10, 10))
-        ax = fig.add_subplot(projection='3d')
-        ax.scatter(x[i], y[i], z[i])
-        ax.set_xlabel('Position')
-        ax.set_ylabel('Velocity')
-        ax.set_zlabel('Cost to go')
-        ax.set_title(f'O({order})\nEpisode {EPISODES}')
-        plt.savefig(f'images/figure_{i + 3}.png')
-        plt.close()
 
 
 def animate():
@@ -115,4 +111,4 @@ def animate():
 
 if __name__ == '__main__':
     main()
-    # animate()
+    animate()

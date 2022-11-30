@@ -45,8 +45,8 @@ class SarsaLambda:
         if animate:
             self.model.animate(episode, 0, self.max_steps)
         S = self.model.getState()
-        z = np.zeros((self.num_basis, self.model.action_space.n))
         A = self.getAction(S)
+        z = np.zeros((self.num_basis, self.model.action_space.n))
 
         for steps in range(self.max_steps):
             phi = np.array([feature(self.model.normalize(S)) for feature in self.basis])
