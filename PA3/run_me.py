@@ -12,9 +12,9 @@ from SarsaLambda import SarsaLambda as sl
 LAMBDA = 0.9
 ALPHA = 0.005
 GAMMA = 1.0
-EPSILON = 0.0
+EPSILON = 0
 EPISODES = 1000
-RUNS = 100
+RUNS = 15
 MAX_STEPS = 200
 CPUS = max(cpu_count() - 1, 1)
 
@@ -50,7 +50,7 @@ def learn(order, grid_size, run):
 
     for position in positions:
         for velocity in velocities:
-            model.set([position, velocity])
+            model.set((position, velocity))
             x.append(position)
             y.append(velocity)
             z.append(sarsa_lam.cost_to_go())
@@ -97,7 +97,6 @@ def main():
     plt.xlabel('Episodes')
     plt.ylabel('Steps')
     plt.xscale('log')
-    # plt.yscale('log')
     plt.legend()
     plt.savefig('images/figure_2.png')
     plt.close()
@@ -106,7 +105,7 @@ def main():
 def animate():
     sarsa_lam = sl(MountainCar(), LAMBDA, ALPHA, GAMMA, EPSILON, 3, MAX_STEPS)
     for episode in tqdm(range(1, EPISODES + 1), desc="Animating Fourier SARSA(Lambda)", ncols=100):
-        sarsa_lam.learnEpisode(episode, animate=episode % 100 == 0 or episode == 1)
+        sarsa_lam.learnEpisode(episode, animate=episode % 200 == 0 or episode == 1)
 
 
 if __name__ == '__main__':
