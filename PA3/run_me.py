@@ -14,7 +14,7 @@ ALPHA = 0.005
 GAMMA = 1.0
 EPSILON = 0.0
 EPISODES = 1000
-RUNS = 20
+RUNS = 50
 MAX_STEPS = 200
 CPUS = max(cpu_count() - 1, 1)
 
@@ -115,4 +115,4 @@ def animate():
 
 if __name__ == '__main__':
     main()
-    animate()
+    # animate()

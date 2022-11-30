@@ -4,8 +4,7 @@ import numpy as np
 
 
 class SarsaLambda:
-    def __init__(self, model, lam: float, alpha: float, gamma: float, epsilon: float, order: int,
-                 max_steps: int = 1000):
+    def __init__(self, model, lam: float, alpha: float, gamma: float, epsilon: float, order: int, max_steps: int = 200):
         self.model = model
         self.lam = lam
         self.alpha = alpha
