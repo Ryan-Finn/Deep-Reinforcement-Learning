@@ -1,4 +1,5 @@
-from itertools import product as prod
+from itertools import product
+from math import prod
 
 import numpy as np
 
@@ -10,23 +11,49 @@ class SarsaLambda:
         self.alpha = alpha
         self.gamma = gamma
         self.epsilon = epsilon
-        self.alphas = [alpha]
         self.order = order
         self.dims = len(model.low)
         self.max_steps = max_steps
+
+        self.num_basis = None
+        self.basis = None
+        self.alphas = None
+        self.weights = None
+
+        # self.setFourier(order)
+        self.setPolynomial(order)
+
+    def setFourier(self, order):
+        self.alphas = [self.alpha]
         self.num_basis = (order + 1) ** self.dims
 
-        # Set up Fourier basis functions and alpha values
-        all_consts = list(prod(range(order + 1), repeat=self.dims))
+        all_consts = list(product(range(order + 1), repeat=self.dims))
         all_consts.remove(all_consts[0])
         self.basis = [lambda _: 1]
+
         for i in range(self.num_basis - 1):
             const = np.array(all_consts[i])
             self.basis.append(lambda s, c=const: np.cos(np.pi * np.dot(s, c)))
-            self.alphas.append(alpha / np.linalg.norm(const))  # a_i = a / ||c_i||
-        self.alphas = np.array([self.alphas] * model.action_space.n).T
+            self.alphas.append(self.alpha / np.linalg.norm(const))  # a_i = a / ||c_i||
 
-        self.weights = np.zeros((self.num_basis, model.action_space.n))
+        self.alphas = np.array([self.alphas] * self.model.action_space.n).T
+        self.weights = np.zeros((self.num_basis, self.model.action_space.n))
+
+    def setPolynomial(self, order):
+        self.alphas = [self.alpha]
+        self.num_basis = (order + 1) ** self.dims
+
+        all_consts = list(product(range(order + 1), repeat=self.dims))
+        all_consts.remove(all_consts[0])
+        self.basis = [lambda _: 1]
+
+        for i in range(self.num_basis - 1):
+            const = np.array(all_consts[i])
+            self.basis.append(lambda s, c=const: prod(np.power(s, const)))
+            self.alphas.append(self.alpha)  # / np.linalg.norm(const))  # a_i = a / ||c_i||
+
+        self.alphas = np.array([self.alphas] * self.model.action_space.n).T
+        self.weights = np.zeros((self.num_basis, self.model.action_space.n))
 
     def getAction(self, S) -> int:
         if np.random.uniform() <= self.epsilon:

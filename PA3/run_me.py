@@ -10,12 +10,12 @@ from MountainCar import MountainCar
 from SarsaLambda import SarsaLambda as sl
 
 LAMBDA = 0.9
-ALPHA = 0.005
+ALPHA = 0.0005
 GAMMA = 1.0
 EPSILON = 0
 EPISODES = 1000
-RUNS = 15
-MAX_STEPS = 200
+RUNS = 1
+MAX_STEPS = 1000
 JOBS = max(min(cpu_count() - 1, RUNS), 1)
 
 
