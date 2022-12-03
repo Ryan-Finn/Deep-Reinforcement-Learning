@@ -10,13 +10,14 @@ from CartPole import CartPole
 from SarsaLambda import SarsaLambda as sl
 
 LAMBDA = 0.9
-ALPHA = 0.005
+ALPHA = 0.001
 GAMMA = 1.0
 EPSILON = 0.01
-ORDER = 3
-EPISODES = 1000
+ORDER = 5
+EPISODES = 500
+MAX_STEPS = 500
+
 RUNS = 1
-MAX_STEPS = 1000
 JOBS = max(min(cpu_count() - 1, RUNS), 1)
 
 
@@ -79,14 +80,14 @@ def main():
 
 
 def animate():
-    weights = np.load('weights/O(3)-Weights')['arr_0']
-    sarsa_lam = sl(CartPole(), LAMBDA, ALPHA, GAMMA, EPSILON, ORDER, weights=weights)
+    # weights = np.load(f'weights/O({ORDER})-Weights')['arr_0']
+    sarsa_lam = sl(CartPole(), LAMBDA, ALPHA, GAMMA, EPSILON, ORDER)  # , weights=weights)
     episodes = 1
     while True:
-        sarsa_lam.playEpisode(episodes)
+        sarsa_lam.learnEpisode(episodes, animate=True)
         episodes += 1
 
 
 if __name__ == '__main__':
-    # main()
-    animate()
+    main()
+    # animate()
