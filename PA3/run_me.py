@@ -10,12 +10,12 @@ from MountainCar import MountainCar
 from SarsaLambda import SarsaLambda as sl
 
 LAMBDA = 0.9
-ALPHA = 0.0005
+ALPHA = 0.005
 GAMMA = 1.0
 EPSILON = 0
 EPISODES = 1000
-RUNS = 1
-MAX_STEPS = 1000
+RUNS = 100
+MAX_STEPS = 200
 JOBS = max(min(cpu_count() - 1, RUNS), 1)
 
 
@@ -38,6 +38,7 @@ def tqdm_joblib(tqdm_object):
 
 
 def learn(order, grid_size, run):
+    """Train SARSA(Lambda) and return steps per episode and cost function values"""
     x, y, z = [], [], []
     model = MountainCar()
     steps = np.zeros(EPISODES)

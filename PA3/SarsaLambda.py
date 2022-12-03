@@ -20,8 +20,8 @@ class SarsaLambda:
         self.alphas = None
         self.weights = None
 
-        # self.setFourier(order)
-        self.setPolynomial(order)
+        self.setFourier(order)
+        # self.setPolynomial(order)
 
     def setFourier(self, order):
         self.alphas = [self.alpha]
@@ -50,7 +50,7 @@ class SarsaLambda:
         for i in range(self.num_basis - 1):
             const = np.array(all_consts[i])
             self.basis.append(lambda s, c=const: prod(np.power(s, const)))
-            self.alphas.append(self.alpha)  # / np.linalg.norm(const))  # a_i = a / ||c_i||
+            self.alphas.append(self.alpha / np.linalg.norm(const))  # a_i = a / ||c_i||
 
         self.alphas = np.array([self.alphas] * self.model.action_space.n).T
         self.weights = np.zeros((self.num_basis, self.model.action_space.n))
