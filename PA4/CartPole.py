@@ -24,7 +24,6 @@ class CartPole(CartPoleEnv):
             dtype=np.float32,
         )
         self.low = -self.high
-        self.action_space = spaces.Discrete(3)
         self.observation_space = spaces.Box(self.low, self.high, dtype=np.float32)
 
     def reset(self, *, seed: Optional[int] = None, options: Optional[dict] = None) -> np.ndarray:
@@ -40,7 +39,7 @@ class CartPole(CartPoleEnv):
         assert self.state is not None, "Call reset before using step method."
 
         x, x_dot, theta, theta_dot = self.state
-        force = (action - 1) * self.force_mag
+        force = self.force_mag if action == 1 else -self.force_mag
         costheta = cos(theta)
         sintheta = sin(theta)
 
