@@ -54,7 +54,7 @@ def main():
 
 def animate():
     weights = np.load(f'weights/O({ORDER})-Weights')['arr_0']
-    sarsa_lam = sl(CartPole(), LAMBDA, ALPHA, GAMMA, 0.0, ORDER , weights=weights)
+    sarsa_lam = sl(CartPole(), LAMBDA, ALPHA, GAMMA, 0.0, ORDER, weights=weights)
     episodes = 1
     while True:
         sarsa_lam.playEpisode(episodes)
