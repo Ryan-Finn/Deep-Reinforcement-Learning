@@ -28,7 +28,7 @@ class CartPole(CartPoleEnv):
 
     def reset(self, *, seed: Optional[int] = None, options: Optional[dict] = None) -> np.ndarray:
         super(CartPoleEnv, self).reset(seed=seed)
-        low, high = utils.maybe_parse_reset_bounds(options, -0.05, 0.05)
+        low, high = utils.maybe_parse_reset_bounds(options, -0.1, 0.1)
         self.state = self.np_random.uniform(low=low, high=high, size=(4,))
         self.steps_beyond_terminated = None
         return np.array(self.state, dtype=np.float32)
