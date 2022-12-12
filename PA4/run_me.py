@@ -5,9 +5,9 @@ from tqdm import tqdm
 from CartPole import CartPole
 from SarsaLambda import SarsaLambda as sl
 
-LAMBDA = 0.5
+LAMBDA = 0.9
 ALPHA = 0.001
-GAMMA = 0.95
+GAMMA = 1.0
 EPSILON = 0.05  # Some exploration seems to be helpful
 MAX_EPISODES = 1000
 MAX_STEPS = 500
