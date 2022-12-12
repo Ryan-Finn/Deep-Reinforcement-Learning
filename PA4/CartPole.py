@@ -33,7 +33,7 @@ class CartPole(CartPoleEnv):
         self.steps_beyond_terminated = None
         return np.array(self.state, dtype=np.float32)
 
-    def step(self, action: int, e: float = 0.5) -> (np.ndarray, float, bool):
+    def step(self, action: int) -> (np.ndarray, float, bool):
         err_msg = f"{action!r} ({type(action)}) invalid"
         assert self.action_space.contains(action), err_msg
         assert self.state is not None, "Call reset before using step method."

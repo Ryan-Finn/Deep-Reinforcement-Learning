@@ -5,8 +5,8 @@ import numpy as np
 
 
 class SarsaLambda:
-    def __init__(self, model, lam: float, alpha: float, gamma: float, epsilon: float, order: int, max_steps: int = 200,
-                 weights=None):
+    def __init__(self, model, lam: float = 0.9, alpha: float = 0.001, gamma: float = 1.0, epsilon: float = 0.05,
+                 order: int = 3, max_steps: int = 500, weights=None):
         self.model = model
         self.lam = lam
         self.alpha = alpha
