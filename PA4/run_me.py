@@ -73,5 +73,5 @@ def play(order):
 
 
 if __name__ == '__main__':
-    learn(animate=False)
-    # play(order=5)
+    # learn(animate=False)
+    play(order=5)

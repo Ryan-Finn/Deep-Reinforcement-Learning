@@ -64,10 +64,10 @@ class CartPole(CartPoleEnv):
         self.state = (x, x_dot, theta, theta_dot)
 
         if not self.isTerminal():
-            return np.array(self.state, dtype=np.float32), 0.0, False
+            return np.array(self.state, dtype=np.float32), 1.0, False
         elif self.steps_beyond_terminated is None:  # Pole just fell!
             self.steps_beyond_terminated = 0
-            return np.array(self.state, dtype=np.float32), -1.0, True
+            return np.array(self.state, dtype=np.float32), 0.0, True
 
         if self.steps_beyond_terminated == 0:
             logger.warn(
@@ -77,7 +77,7 @@ class CartPole(CartPoleEnv):
                 "True' -- any further steps are undefined behavior."
             )
         self.steps_beyond_terminated += 1
-        return np.array(self.state, dtype=np.float32), -1.0, True
+        return np.array(self.state, dtype=np.float32), 0.0, True
 
     def animate(self, episode: int, step: int, max_steps: int = None, best_steps: int = None):
         super().render()

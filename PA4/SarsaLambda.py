@@ -68,7 +68,7 @@ class SarsaLambda:
 
     def value(self, S, A: int) -> float:
         if self.model.isTerminal(S):
-            return -1.0
+            return 0.0
 
         phi = np.array([feature(self.model.normalize(S)) for feature in self.basis])
         return float(np.dot(self.weights[:, A], phi))
