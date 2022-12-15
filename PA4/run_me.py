@@ -15,7 +15,7 @@ MAX_STEPS = 500
 
 def learn(animate):
     model = CartPole()
-    orders = [3, 5, 7]
+    orders = [3]
     last = np.zeros(len(orders), dtype=int)
     steps = np.zeros((len(orders), MAX_EPISODES))
 
@@ -24,7 +24,21 @@ def learn(animate):
         sarsa_lam = sl(model, LAMBDA, ALPHA, GAMMA, EPSILON, order, MAX_STEPS)
 
         for episode in tqdm(range(MAX_EPISODES), desc=f'Learning Fourier SARSA(Lambda) O({order})', ncols=100):
-            steps[i, episode] = sarsa_lam.learnEpisode(episode, animate)
+            sarsa_lam.newEpisode()
+            if animate:
+                model.animate(episode, 0, MAX_STEPS)
+
+            for step in range(MAX_STEPS):
+                terminated = sarsa_lam.step()
+                if animate:
+                    model.animate(episode, step + 1, MAX_STEPS)
+
+                if terminated:
+                    steps[i, episode] = step + 1
+                    break
+            else:
+                steps[i, episode] = MAX_STEPS
+
             # Count number of consecutive episodes the pole remains balanced for at least 95% of maximum number of steps
             count += 1 if steps[i, episode] >= 0.95 * MAX_STEPS else -count
 
@@ -64,14 +78,31 @@ def learn(animate):
 
 def play(order):
     weights = np.load(f'weights/O({order})-Weights')['arr_0']
+    model = CartPole()
     # Having a small, non-zero epsilon could be a good way to simulate noise in the environment, if desired
-    sarsa_lam = sl(CartPole(), epsilon=0.05, order=order, weights=weights)
-    episodes = 1
+    sarsa_lam = sl(model, epsilon=0.05, order=order, weights=weights)
+
+    best_steps = 0
+    episode = 1
     while True:
-        sarsa_lam.playEpisode(episodes)
-        episodes += 1
+        sarsa_lam.newEpisode()
+        model.animate(episode, 0, MAX_STEPS)
+
+        steps = 0
+        while True:
+            terminated = sarsa_lam.step()
+            model.animate(episode, steps + 1, MAX_STEPS)
+
+            steps += 1
+            if steps > best_steps:
+                best_steps = steps
+
+            if terminated:
+                break
+
+        episode += 1
 
 
 if __name__ == '__main__':
     # learn(animate=False)
-    play(order=5)
+    play(order=3)

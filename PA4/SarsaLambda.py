@@ -20,6 +20,9 @@ class SarsaLambda:
         self.num_basis = None
         self.basis = None
         self.alphas = None
+        self.S = None
+        self.A = None
+        self.z = None
         self.best_steps = 0
 
         self.setFourier(order)
@@ -73,35 +76,30 @@ class SarsaLambda:
         phi = np.array([feature(self.model.normalize(S)) for feature in self.basis])
         return float(np.dot(self.weights[:, A], phi))
 
-    def learnEpisode(self, episode: int = 0, animate: bool = False) -> int:
-        self.model.reset()
-        if animate:
-            self.model.animate(episode, 0, self.max_steps)
-        S = self.model.getState()
-        A = self.getAction(S)
-        z = np.zeros((self.num_basis, self.model.action_space.n))
+    def newEpisode(self):
+        self.S = self.model.reset()
+        self.A = self.getAction(self.S)
+        self.z = np.zeros((self.num_basis, self.model.action_space.n))
 
-        for steps in range(self.max_steps):
-            phi = np.array([feature(self.model.normalize(S)) for feature in self.basis])
+    def step(self):
+        phi = np.array([feature(self.model.normalize(self.S)) for feature in self.basis])
 
-            z[:, A] += phi  # accumulating traces
-            S_p, R, terminated = self.model.step(A)
-            if animate:
-                self.model.animate(episode, steps + 1, self.max_steps)
-            delta = R - self.value(S, A)
+        self.z[:, self.A] += phi  # accumulating traces
+        S_p, R, terminated = self.model.step(self.A)
+        delta = R - self.value(self.S, self.A)
 
-            if terminated:
-                self.weights += delta * z * self.alphas
-                return steps + 1
+        if terminated:
+            self.weights += delta * self.z * self.alphas
+            return True
 
-            A_p = self.getAction(S_p)
-            delta += self.gamma * self.value(S_p, A_p)
-            self.weights += delta * z * self.alphas
-            z *= self.gamma * self.lam
-            S = S_p
-            A = A_p
+        A_p = self.getAction(S_p)
+        delta += self.gamma * self.value(S_p, A_p)
+        self.weights += delta * self.z * self.alphas
+        self.z *= self.gamma * self.lam
+        self.S = S_p
+        self.A = A_p
 
-        return self.max_steps
+        return False
 
     def playEpisode(self, episode: int = 0) -> int:
         self.model.reset()
