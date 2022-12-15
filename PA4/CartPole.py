@@ -3,7 +3,7 @@ from os import environ
 from typing import Optional
 
 import numpy as np
-from gym import logger, spaces
+from gym import spaces
 from gym.envs.classic_control import utils
 from gym.envs.classic_control.cartpole import CartPoleEnv
 
@@ -63,21 +63,7 @@ class CartPole(CartPoleEnv):
 
         self.state = (x, x_dot, theta, theta_dot)
 
-        if not self.isTerminal():
-            return np.array(self.state, dtype=np.float32), 1.0, False
-        elif self.steps_beyond_terminated is None:  # Pole just fell!
-            self.steps_beyond_terminated = 0
-            return np.array(self.state, dtype=np.float32), 0.0, True
-
-        if self.steps_beyond_terminated == 0:
-            logger.warn(
-                "You are calling 'step()' even though this "
-                "environment has already returned terminated = True. You "
-                "should always call 'reset()' once you receive 'terminated = "
-                "True' -- any further steps are undefined behavior."
-            )
-        self.steps_beyond_terminated += 1
-        return np.array(self.state, dtype=np.float32), 0.0, True
+        return np.array(self.state, dtype=np.float32), self.isOutOfBounds(), self.isTerminal()
 
     def animate(self, episode: int, step: int, max_steps: int = None, best_steps: int = None):
         super().render()
@@ -93,12 +79,17 @@ class CartPole(CartPoleEnv):
         if self.render_mode == "human":
             display.set_caption(f'    Episode: {episode}    |    Step: {step}' + max_str + best_str)
 
+    def isOutOfBounds(self, state: (float, float, float, float) = None) -> bool:
+        if state is None:
+            state = self.state
+        x, x_dot, theta, theta_dot = state
+        return bool(x < -self.x_threshold or x > self.x_threshold)
+
     def isTerminal(self, state: (float, float, float, float) = None) -> bool:
         if state is None:
             state = self.state
         x, x_dot, theta, theta_dot = state
-        return bool(x < -self.x_threshold or x > self.x_threshold or theta < -self.theta_threshold_radians
-                    or theta > self.theta_threshold_radians)
+        return bool(theta < -self.theta_threshold_radians or theta > self.theta_threshold_radians)
 
     def getState(self) -> np.ndarray:
         return np.array(self.state)

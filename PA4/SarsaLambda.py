@@ -6,12 +6,14 @@ import numpy as np
 
 class SarsaLambda:
     def __init__(self, model, lam: float = 0.9, alpha: float = 0.001, gamma: float = 1.0, epsilon: float = 0.05,
-                 order: int = 3, max_steps: int = 500, weights=None):
+                 R: float = 0.0, P: float = -1.0, order: int = 3, max_steps: int = 500, weights=None):
         self.model = model
         self.lam = lam
         self.alpha = alpha
         self.gamma = gamma
         self.epsilon = epsilon
+        self.R = R
+        self.P = P
         self.order = order
         self.max_steps = max_steps
         self.weights = weights
@@ -70,8 +72,8 @@ class SarsaLambda:
         return int(np.argmax([self.value(S, A) for A in range(self.model.action_space.n)]))
 
     def value(self, S, A: int) -> float:
-        if self.model.isTerminal(S):
-            return 0.0
+        if self.model.isOutOfBounds(S) or self.model.isTerminal(S):
+            return self.P
 
         phi = np.array([feature(self.model.normalize(S)) for feature in self.basis])
         return float(np.dot(self.weights[:, A], phi))
@@ -85,10 +87,14 @@ class SarsaLambda:
         phi = np.array([feature(self.model.normalize(self.S)) for feature in self.basis])
 
         self.z[:, self.A] += phi  # accumulating traces
-        S_p, R, terminated = self.model.step(self.A)
+        S_p, outOfBounds, terminated = self.model.step(self.A)
+        R = self.R
+        if outOfBounds or terminated:
+            R = self.P
+
         delta = R - self.value(self.S, self.A)
 
-        if terminated:
+        if outOfBounds or terminated:
             self.weights += delta * self.z * self.alphas
             return True
 
@@ -100,26 +106,6 @@ class SarsaLambda:
         self.A = A_p
 
         return False
-
-    def playEpisode(self, episode: int = 0) -> int:
-        self.model.reset()
-        self.model.animate(episode, 0, best_steps=self.best_steps)
-        S = self.model.getState()
-        A = self.getAction(S)
-
-        steps = 1
-        while True:
-            if steps > self.best_steps:
-                self.best_steps = steps
-
-            S_p, _, terminated = self.model.step(A)
-            self.model.animate(episode, steps, best_steps=self.best_steps)
-
-            if terminated:
-                return steps
-
-            A = self.getAction(S_p)
-            steps += 1
 
     def cost_to_go(self, S) -> float:
         return -max([self.value(S, A) for A in range(self.model.action_space.n)])

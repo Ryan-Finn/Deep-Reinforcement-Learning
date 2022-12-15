@@ -14,24 +14,28 @@ MAX_STEPS = 500
 
 
 def learn(animate):
-    model = CartPole()
+    model_UP = CartPole()
+    model_DOWN = CartPole()
     orders = [3]
     last = np.zeros(len(orders), dtype=int)
     steps = np.zeros((len(orders), MAX_EPISODES))
 
     for i, order in enumerate(orders):
         count = 0
-        sarsa_lam = sl(model, LAMBDA, ALPHA, GAMMA, EPSILON, order, MAX_STEPS)
+        sarsa_lam_UP = sl(model_UP, LAMBDA, ALPHA, GAMMA, EPSILON, 0.0, -1.0, order, MAX_STEPS)
+        sarsa_lam_DOWN = sl(model_DOWN, LAMBDA, ALPHA, GAMMA, EPSILON, 1.0, 0.0, order, MAX_STEPS)
 
         for episode in tqdm(range(MAX_EPISODES), desc=f'Learning Fourier SARSA(Lambda) O({order})', ncols=100):
-            sarsa_lam.newEpisode()
+            sarsa_lam_UP.newEpisode()
+            sarsa_lam_DOWN.newEpisode()
             if animate:
-                model.animate(episode, 0, MAX_STEPS)
+                model_UP.animate(episode, 0, MAX_STEPS)
+                model_DOWN.animate(episode, 0, MAX_STEPS)
 
             for step in range(MAX_STEPS):
-                terminated = sarsa_lam.step()
+                terminated = sarsa_lam_UP.step()
                 if animate:
-                    model.animate(episode, step + 1, MAX_STEPS)
+                    model_UP.animate(episode, step + 1, MAX_STEPS)
 
                 if terminated:
                     steps[i, episode] = step + 1
@@ -53,8 +57,8 @@ def learn(animate):
             continue  # Don't bother saving the weights in this case, they're probably garbage
 
         # If loop exited early then save the weights
-        with open(f'weights/O({order})-Weights', 'wb') as file:
-            np.savez_compressed(file, sarsa_lam.weights)
+        with open(f'weights/O({order})-Weights_UP', 'wb') as file:
+            np.savez_compressed(file, sarsa_lam_UP.weights)
 
     # Figure 1
     for i, order in enumerate(orders):
